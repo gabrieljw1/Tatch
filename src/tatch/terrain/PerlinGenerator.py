@@ -11,14 +11,14 @@ class PerlinGenerator(object):
         self.persistence = persistence
         self.lacunarity = lacunarity
 
-    def generateGrid(self):
+    def generateGrid(self, xShift, yShift):
         grid = np.zeros(self.dimensions)
         (width, height) = (self.dimensions)
 
         for x in range(width):
             for y in range(height):
-                grid[x][y] = 5*noise.pnoise2(x/self.scale,
-                                            y/self.scale,
+                grid[x][y] = 5*noise.pnoise2((x + xShift)/self.scale,
+                                            (y + yShift)/self.scale,
                                             octaves=self.octaves,
                                             persistence=self.persistence,
                                             lacunarity=self.lacunarity,

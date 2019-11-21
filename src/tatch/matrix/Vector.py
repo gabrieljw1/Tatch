@@ -11,3 +11,9 @@ class Vector(object):
 
     def __repr__(self):
         return f"Vector: [{self.x}, {self.y}, {self.z}, {self.w}]"
+
+    def __eq__(self, other):
+        return self.x == other.x and\
+                self.y == other.y and\
+                self.z == other.z and\
+                self.w == other.w

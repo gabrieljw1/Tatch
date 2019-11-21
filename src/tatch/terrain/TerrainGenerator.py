@@ -5,8 +5,8 @@ class TerrainGenerator(object):
     def __init__(self, dims, scale):
         self.perlinGenerator = PerlinGenerator(dims, scale)
 
-    def generateTerrainVectors(self, xOffset, yOffset, zOffset, zSign = 1.0):
-        perlinGrid = self.perlinGenerator.generateGrid()
+    def generateTerrainVectors(self, xOffset, yOffset, zOffset, zSign = 1.0, xShift=0, zShift=0):
+        perlinGrid = self.perlinGenerator.generateGrid(xShift, zShift)
 
         terrainVectors = []
 

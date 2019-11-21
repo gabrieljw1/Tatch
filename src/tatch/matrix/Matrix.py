@@ -24,6 +24,14 @@ class Matrix(object):
 
         return output
 
+    @staticmethod
+    def transpose(matrix):
+        output = Matrix(matrix.rows, matrix.cols, None)
+
+        output.values = numpy.transpose(matrix.values).tolist()
+
+        return output
+
     # Initialize the matrix with values.
     def __init__(self, rows, cols, value=0):
         self.rows = rows
@@ -59,19 +67,22 @@ class Matrix(object):
                     vector.y * self.values[1][3] +\
                     vector.z * self.values[2][3] +\
                     vector.w * self.values[3][3]
+                    
 
         # Since we always want the output to be in cartesian coordinates, not
         #   homogenous coordinates, /w/ must be 1. So normalize if it is not. If
         #   /w/ is 0, then the vector does not exist in cartesian space and must
         #   be voided.
+        
         output = Vector(outputX, outputY, outputZ, outputW)
 
-        if (outputW == 0):
+        if (output.w == 0):
             return None
-        elif (outputW != 1):
-            return Vector.scalarDivide(output, outputW)
+        elif (output.w != 1):
+            return Vector.scalarDivide(output, output.w)
         else:
             return output
+        
 
     def __repr__(self):
         return self.values.__repr__()

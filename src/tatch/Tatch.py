@@ -22,7 +22,7 @@ class Tatch(tk.Tk):
 
         # Game
         self.world = World( (self.width, self.height) )
-        self.timerDelay = 1000//1
+        self.timerDelay = 1000//10
 
         self.terrainLineIdsList = []
 
@@ -34,31 +34,21 @@ class Tatch(tk.Tk):
         self.xStep = 0.0
         self.yStep = 0.0
 
+        self.xShift = 0
+        self.zShift = 0
+
+        self.movementSpeed = 0.05
+
         self.updateTerrain = True
 
         self.bind("<KeyPress>", self.keyDown)
         self.bind("<KeyRelease>", self.keyUp)
 
-    def generateCubeRasters(self):
-        rasters = []
-
-        for cube in self.cubes:
-            rasters.append(self.world.generateRaster(cube.getVectors()))
-
-        return rasters
-
     def drawTerrain(self):
         terrainVectors = self.world.terrainCache
 
+        self.tatchFrame.clearTerrainLines(self.terrainLineIdsList)
         self.terrainLineIdsList = self.tatchFrame.drawTerrainFromVectors(terrainVectors)
-
-    def drawCubes(self):
-        cubeLineIdsList = []
-
-        for raster in self.generateCubeRasters():
-            cubeLineIdsList.append(self.tatchFrame.drawCube(raster))
-
-        self.cubeLineIdsList = cubeLineIdsList
 
     def moveCubes(self, dx, dy, dz):
         for cube in self.cubes:
@@ -71,6 +61,16 @@ class Tatch(tk.Tk):
         for i in range(len(cubeRasters)):
             self.tatchFrame.moveCube(cubeRasters[i], self.cubeLineIdsList[i])
 
+    def shiftTerrain(self, dx, dz):
+        self.xShift += dx
+        self.zShift += dz
+
+        self.world.setTerrainCache(self.world.terrainXOffset,\
+                                    self.world.terrainYOffset,\
+                                    self.world.terrainZOffset,\
+                                    self.xShift,\
+                                    self.zShift)
+
     def moveCamera(self):
         self.tatchFrame.clearTerrainLines(self.terrainLineIdsList)
 
@@ -79,39 +79,43 @@ class Tatch(tk.Tk):
     def drawAll(self, drawTerrain=False):
         if (drawTerrain):
             self.drawTerrain()
-        
-        if (self.cubeLineIdsList == []):
-            self.drawCubes()
-        else:
-            #self.moveCubes(self.xStep, self.yStep, self.zStep)
-            pass
 
     def gameLoop(self):
-        self.updateTerrain = True
+        startTime = time.time()
+
+        if (self.xStep != 0 or self.yStep != 0 or self.zStep != 0):
+            shiftTerrainStart = time.time()
+            self.shiftTerrain(self.xStep, self.zStep)
+            shiftTerrainEnd = time.time()
+            print(f"    shiftTerrain() took {shiftTerrainEnd - shiftTerrainStart}")
+
+            self.updateTerrain = True
 
         self.drawAll(self.updateTerrain)
-
-        #self.moveCamera()
 
         self.updateTerrain = False
 
         self.after(self.timerDelay, self.gameLoop)
 
+        endTime = time.time()
+
+        print(f"Game loop took {endTime - startTime}s")
+
     def keyDown(self, event):
         if (event.char == "w"):
-            self.zStep = -0.5
+            self.zStep = -self.movementSpeed
         elif (event.char == "s"):
-            self.zStep = 0.5
+            self.zStep = self.movementSpeed
 
         if (event.char == "a"):
-            self.xStep = 0.5
+            self.xStep = self.movementSpeed
         elif (event.char == "d"):
-            self.xStep = -0.5
+            self.xStep = -self.movementSpeed
 
         if (event.char == "q"):
-            self.yStep = 0.5
+            self.yStep = self.movementSpeed
         elif (event.char == "e"):
-            self.yStep = -0.5
+            self.yStep = -self.movementSpeed
 
     def keyUp(self, event):
         if (event.char == "w" or event.char == "s"):

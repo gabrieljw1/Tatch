@@ -120,7 +120,7 @@ class Camera(object):
         (x,y) = (vectorS.x, vectorS.y)
 
         # Screen coordinates must be within [-1,1] for raster projection
-        if (constrained and ((x < -1 or x > 1) or (y < -1 or y > 1))):
+        if (constrained and ((x < -1.1 or x > 1.1) or (y < -1.1 or y > 1.1))):
             return None
         else:
             # TODO: Decide in int() or roundHalfUp()

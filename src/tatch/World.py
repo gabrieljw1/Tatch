@@ -33,23 +33,23 @@ class World(object):
                             self.axes)
         
         # Terrain generation
-        self.terrainDims = (80, 40)
+        self.terrainDims = (78, 35)
         self.terrainScale = 10
-        self.terrainXOffset = -40
+        self.terrainXOffset = -39
         self.terrainYOffset = 0
-        self.terrainZOffset = 0
+        self.terrainZOffset = 10
         self.terrainGenerator = TerrainGenerator(self.terrainDims,\
                                                 self.terrainScale)
         self.terrainCache = self.generateTerrainRasterPoints(self.terrainXOffset, self.terrainYOffset, self.terrainZOffset)
 
     # Wrapper method for the Terrain Generator's vector generation method.
     # Creates a list of all terrain point vectors.
-    def generateTerrainVectors(self, xOffset, yOffset, zOffset, zSign):
-        return self.terrainGenerator.generateTerrainVectors(xOffset, yOffset, zOffset, zSign)
+    def generateTerrainVectors(self, xOffset, yOffset, zOffset, zSign, xShift = 0, yShift = 0):
+        return self.terrainGenerator.generateTerrainVectors(xOffset, yOffset, zOffset, zSign, xShift, yShift)
 
     # Creates a 2D list of points associated with their (x,z) index.
-    def generateTerrainRasterPoints(self, xOffset=0, yOffset=0, zOffset=0):
-        terrainVectors = self.generateTerrainVectors(xOffset, yOffset, zOffset, -1.0)
+    def generateTerrainRasterPoints(self, xOffset=0, yOffset=0, zOffset=0, xShift = 0, zShift = 0):
+        terrainVectors = self.generateTerrainVectors(xOffset, yOffset, zOffset, -1.0, xShift, zShift)
 
         terrainRasterPoints = []
 
@@ -57,7 +57,7 @@ class World(object):
             row = []
 
             for z in range( len(terrainVectors[x]) ):
-                rasterPoint = self.camera.worldToRaster(terrainVectors[x][z], False)
+                rasterPoint = self.camera.worldToRaster(terrainVectors[x][z], True)
 
                 row.append( rasterPoint )
             
@@ -68,8 +68,8 @@ class World(object):
     def generateRaster(self, vectors):
         return self.camera.generateRaster(vectors)
 
-    def setTerrainCache(self, xOffset, yOffset, zOffset):
-        self.terrainCache = self.generateTerrainRasterPoints(xOffset, yOffset, zOffset)
+    def setTerrainCache(self, xOffset, yOffset, zOffset, xShift, zShift):
+        self.terrainCache = self.generateTerrainRasterPoints(xOffset, yOffset, zOffset, xShift, zShift)
 
     def moveCamera(self, dx, dy, dz):
         origin = self.axes[0]
