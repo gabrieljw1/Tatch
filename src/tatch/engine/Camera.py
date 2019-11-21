@@ -90,10 +90,13 @@ class Camera(object):
         # Calculate all perspective information
 
         (self.cTop, self.cBottom, self.cRight, self.cLeft) =\
-            Camera.generateCanvasCoordinates(clippingPlanes, fieldOfView, self.aspectRatio)
+            Camera.generateCanvasCoordinates(clippingPlanes, fieldOfView,\
+                self.aspectRatio)
 
-        self.projMatrix = Camera.generateProjectionMatrix(clippingPlanes, fieldOfView)
-        self.cameraToWorldMatrix = self.generateCameraToWorldMatrix(self.worldAxes)
+        self.projMatrix = Camera.generateProjectionMatrix(clippingPlanes,\
+            fieldOfView)
+        self.cameraToWorldMatrix =\
+            self.generateCameraToWorldMatrix(self.worldAxes)
         self.worldToCameraMatrix = Matrix.inverse(self.cameraToWorldMatrix)
 
     def worldToCamera(self, vectorW):
@@ -101,7 +104,8 @@ class Camera(object):
         return output
 
     def cameraToScreen(self, vectorC):
-        # The screen should only show things in front of the camera (i.e. positive camera coords)
+        # The screen should only show things in front of the camera (i.e.
+        #   positive camera coords)
         if (vectorC.z > 0):
             output = self.projMatrix.pointVectorMultiply(vectorC)
             return output
@@ -121,17 +125,19 @@ class Camera(object):
         else:
             # TODO: Decide in int() or roundHalfUp()
             # Normalize (x,y) to [0,1]
-            normalizedX = (x + 1) / 2
-            normalizedY = (y + 1) / 2
+            normX = (x + 1) / 2
+            normY = (y + 1) / 2
 
-            rasterX = int(min(self.imageWidth -1, normalizedX    * self.imageWidth ))
-            rasterY = int(min(self.imageHeight-1, (1-normalizedY)* self.imageHeight))
+            rasterX = int(min(self.imageWidth -1,normX    *self.imageWidth ))
+            rasterY = int(min(self.imageHeight-1,(1-normY)*self.imageHeight))
 
             return(rasterX, rasterY)
 
+    # Take a world coordinate and tranform it to raster coordinates.
     def worldToRaster(self, vectorW, constrained):
         return self.screenToRaster(self.cameraToScreen(self.worldToCamera(vectorW)), constrained)
 
+    # Generate a raster given a list of world vectors.
     def generateRaster(self, listVectorW, constrained=True):
         raster = dict()
 

@@ -2,6 +2,7 @@ import numpy
 
 from matrix.Vector import Vector
 
+# A matrix object. Self explanatory.
 class Matrix(object):
     @staticmethod
     def generateIdentity(rows, cols):
@@ -14,6 +15,7 @@ class Matrix(object):
 
         return output
 
+    # Generate the inverse of a given matrix.
     @staticmethod
     def inverse(matrix):
         output = Matrix(matrix.rows, matrix.cols, None)
@@ -22,6 +24,7 @@ class Matrix(object):
 
         return output
 
+    # Initialize the matrix with values.
     def __init__(self, rows, cols, value=0):
         self.rows = rows
         self.cols = cols
@@ -38,6 +41,7 @@ class Matrix(object):
 
         self.values = values
 
+    # Multiply the current matrix by a 4-dimensional vector
     def pointVectorMultiply(self, vector):
         outputX = vector.x * self.values[0][0] +\
                     vector.y * self.values[1][0] +\
@@ -57,11 +61,13 @@ class Matrix(object):
                     vector.w * self.values[3][3]
 
         # Since we always want the output to be in cartesian coordinates, not
-        #   homogenous coordinates, /w/ must be 1. So normalize if it is not:
+        #   homogenous coordinates, /w/ must be 1. So normalize if it is not. If
+        #   /w/ is 0, then the vector does not exist in cartesian space and must
+        #   be voided.
         output = Vector(outputX, outputY, outputZ, outputW)
 
         if (outputW == 0):
-            return output
+            return None
         elif (outputW != 1):
             return Vector.scalarDivide(output, outputW)
         else:
