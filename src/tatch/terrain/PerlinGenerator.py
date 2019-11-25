@@ -16,14 +16,16 @@ class PerlinGenerator(object):
         (width, height) = (self.dimensions)
 
         for x in range(width):
+            scaledShiftedX = (x + xShift) / self.scale
+
             for y in range(height):
-                grid[x][y] = 5*noise.pnoise2((x + xShift)/self.scale,
+                grid[x][y] = float(5.0*noise.pnoise2(scaledShiftedX,
                                             (y + yShift)/self.scale,
                                             octaves=self.octaves,
                                             persistence=self.persistence,
                                             lacunarity=self.lacunarity,
                                             repeatx=1024,
                                             repeaty=1024,
-                                            base=0)
+                                            base=0))
 
         return grid

@@ -4,10 +4,10 @@ class Vector(object):
         return Vector(vector.x/div, vector.y/div, vector.z/div, vector.w/div)
 
     def __init__(self, x, y, z, w=1):
-        self.x = x
-        self.y = y
-        self.z = z
-        self.w = w
+        self.x = float(x)
+        self.y = float(y)
+        self.z = float(z)
+        self.w = float(w)
 
     def __repr__(self):
         return f"Vector: [{self.x}, {self.y}, {self.z}, {self.w}]"
@@ -17,3 +17,6 @@ class Vector(object):
                 self.y == other.y and\
                 self.z == other.z and\
                 self.w == other.w
+
+    def __hash__(self):
+        return hash( (self.x, self.y, self.z, self.w) )

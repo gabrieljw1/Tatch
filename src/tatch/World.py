@@ -5,7 +5,7 @@ from matrix.Vector import Vector
 from matrix.Matrix import Matrix
 from terrain.TerrainGenerator import TerrainGenerator
 from engine.Camera import Camera
-import decimal, random, time
+import time
 
 
 ########################
@@ -20,7 +20,7 @@ class World(object):
         self.clippingPlanes = clippingPlanes
 
         # Define world axes
-        origin = Vector(0, -10, 0)
+        origin = Vector(0, -12, 0)
         xAxis  = Vector(1,0,0)
         yAxis  = Vector(0,1,0)
         zAxis  = Vector(0,0,1)
@@ -33,7 +33,7 @@ class World(object):
                             self.axes)
         
         # Terrain generation
-        self.terrainDims = (78, 35)
+        self.terrainDims = (77, 30)
         self.terrainScale = 10
         self.terrainXOffset = -39
         self.terrainYOffset = 0
@@ -47,23 +47,10 @@ class World(object):
     def generateTerrainVectors(self, xOffset, yOffset, zOffset, zSign, xShift = 0, yShift = 0):
         return self.terrainGenerator.generateTerrainVectors(xOffset, yOffset, zOffset, zSign, xShift, yShift)
 
-    # Creates a 2D list of points associated with their (x,z) index.
     def generateTerrainRasterPoints(self, xOffset=0, yOffset=0, zOffset=0, xShift = 0, zShift = 0):
         terrainVectors = self.generateTerrainVectors(xOffset, yOffset, zOffset, -1.0, xShift, zShift)
 
-        terrainRasterPoints = []
-
-        for x in range( len(terrainVectors) ):
-            row = []
-
-            for z in range( len(terrainVectors[x]) ):
-                rasterPoint = self.camera.worldToRaster(terrainVectors[x][z], True)
-
-                row.append( rasterPoint )
-            
-            terrainRasterPoints.append(row)
-
-        return terrainRasterPoints
+        return [[self.camera.worldToRaster(terrainVectors[x][z], True) for z in range( len(terrainVectors[x]) )] for x in range( len(terrainVectors) )]
 
     def generateRaster(self, vectors):
         return self.camera.generateRaster(vectors)
@@ -86,36 +73,3 @@ class World(object):
         self.terrainZOffset += dz
 
         self.setTerrainCache(self.terrainXOffset, self.terrainYOffset, self.terrainZOffset)
-
-########################
-# TKinter Conversion
-########################
-
-class Cube(object):
-    @staticmethod
-    def generateCubeVectors(x0, y0, r, z):
-        topLeft = Vector(x0, y0, z)
-        topRight = Vector(x0, y0 + r, z)
-        bottomLeft = Vector(x0 + r, y0, z)
-        bottomRight = Vector(x0 + r, y0 + r, z)
-
-        backTopLeft = Vector(x0, y0, z - r)
-        backTopRight = Vector(x0, y0 + r, z - r)
-        backBottomLeft = Vector(x0 + r, y0, z - r)
-        backBottomRight = Vector(x0 + r, y0 + r, z - r)
-
-        cubeVectors = []
-
-        cubeVectors += [topLeft] + [topRight] + [bottomLeft] + [bottomRight]
-        cubeVectors += [backTopLeft] + [backTopRight] + [backBottomLeft] + [backBottomRight]
-
-        return cubeVectors
-
-    def __init__(self, x0, y0, r, z=-10):
-        self.x0 = x0
-        self.y0 = y0
-        self.r = r
-        self.z = z
-
-    def getVectors(self):
-        return Cube.generateCubeVectors(self.x0, self.y0, self.r, self.z)

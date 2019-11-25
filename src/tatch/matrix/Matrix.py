@@ -11,7 +11,7 @@ class Matrix(object):
         for row in range(rows):
             for col in range(cols):
                 if (row == col):
-                    output.values[row][col] = 1
+                    output.values[row][col] = float(1.0)
 
         return output
 
@@ -33,21 +33,11 @@ class Matrix(object):
         return output
 
     # Initialize the matrix with values.
-    def __init__(self, rows, cols, value=0):
+    def __init__(self, rows, cols, value=0.0):
         self.rows = rows
         self.cols = cols
-        
-        # Fill all of the values with 0
-        values = []
 
-        for row in range(rows):
-            rowValues = []
-            for col in range(cols):
-                rowValues.append(value)
-
-            values.append(rowValues)
-
-        self.values = values
+        self.values = [[value for col in range(cols)] for row in range(rows)]
 
     # Multiply the current matrix by a 4-dimensional vector
     def pointVectorMultiply(self, vector):
@@ -68,21 +58,7 @@ class Matrix(object):
                     vector.z * self.values[2][3] +\
                     vector.w * self.values[3][3]
                     
-
-        # Since we always want the output to be in cartesian coordinates, not
-        #   homogenous coordinates, /w/ must be 1. So normalize if it is not. If
-        #   /w/ is 0, then the vector does not exist in cartesian space and must
-        #   be voided.
+        return Vector(outputX / outputW, outputY / outputW, outputZ / outputW, 1)
         
-        output = Vector(outputX, outputY, outputZ, outputW)
-
-        if (output.w == 0):
-            return None
-        elif (output.w != 1):
-            return Vector.scalarDivide(output, output.w)
-        else:
-            return output
-        
-
     def __repr__(self):
         return self.values.__repr__()

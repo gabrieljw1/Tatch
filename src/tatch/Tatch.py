@@ -5,12 +5,11 @@ from matrix.Vector import Vector
 from matrix.Matrix import Matrix
 from engine.Camera import Camera
 from World import World
-from World import Cube
 from visual.TatchFrame import TatchFrame
 import decimal, random, time
 
 class Tatch(tk.Tk):
-    def __init__(self, width=768, height=768):
+    def __init__(self, width=1440, height=900):
         super().__init__()
 
         self.width = width
@@ -22,24 +21,25 @@ class Tatch(tk.Tk):
 
         # Game
         self.world = World( (self.width, self.height) )
-        self.timerDelay = 1000//10
+        self.timerDelay = 1000//20
 
         self.terrainLineIdsList = []
-
-        self.cubes = []
-        self.cubeLineIdsList = []
-        self.cubes.append( Cube(-12,-12,10,-15) )
 
         self.zStep = 0.0
         self.xStep = 0.0
         self.yStep = 0.0
 
-        self.xShift = 0
-        self.zShift = 0
+        self.xShift = 0.0
+        self.zShift = 0.0
 
-        self.movementSpeed = 0.05
+        self.movementSpeed = 0.5
 
         self.updateTerrain = True
+
+        self.backgroundColor = "black"
+        self.terrainColor = "white"
+
+        self.tatchFrame.tatchCanvas.config(background=self.backgroundColor)
 
         self.bind("<KeyPress>", self.keyDown)
         self.bind("<KeyRelease>", self.keyUp)
@@ -48,18 +48,7 @@ class Tatch(tk.Tk):
         terrainVectors = self.world.terrainCache
 
         self.tatchFrame.clearTerrainLines(self.terrainLineIdsList)
-        self.terrainLineIdsList = self.tatchFrame.drawTerrainFromVectors(terrainVectors)
-
-    def moveCubes(self, dx, dy, dz):
-        for cube in self.cubes:
-            cube.z += dz
-            cube.x0 += dx
-            cube.y0 += dy
-
-        cubeRasters = self.generateCubeRasters()
-
-        for i in range(len(cubeRasters)):
-            self.tatchFrame.moveCube(cubeRasters[i], self.cubeLineIdsList[i])
+        self.terrainLineIdsList = self.tatchFrame.drawTerrainFromVectors(terrainVectors, self.terrainColor)
 
     def shiftTerrain(self, dx, dz):
         self.xShift += dx
@@ -71,23 +60,13 @@ class Tatch(tk.Tk):
                                     self.xShift,\
                                     self.zShift)
 
-    def moveCamera(self):
-        self.tatchFrame.clearTerrainLines(self.terrainLineIdsList)
-
-        self.world.moveCamera(self.xStep, self.yStep, self.zStep)
-
     def drawAll(self, drawTerrain=False):
         if (drawTerrain):
             self.drawTerrain()
 
     def gameLoop(self):
-        startTime = time.time()
-
         if (self.xStep != 0 or self.yStep != 0 or self.zStep != 0):
-            shiftTerrainStart = time.time()
             self.shiftTerrain(self.xStep, self.zStep)
-            shiftTerrainEnd = time.time()
-            print(f"    shiftTerrain() took {shiftTerrainEnd - shiftTerrainStart}")
 
             self.updateTerrain = True
 
@@ -97,15 +76,11 @@ class Tatch(tk.Tk):
 
         self.after(self.timerDelay, self.gameLoop)
 
-        endTime = time.time()
-
-        print(f"Game loop took {endTime - startTime}s")
-
     def keyDown(self, event):
         if (event.char == "w"):
-            self.zStep = -self.movementSpeed
-        elif (event.char == "s"):
             self.zStep = self.movementSpeed
+        elif (event.char == "s"):
+            self.zStep = -self.movementSpeed
 
         if (event.char == "a"):
             self.xStep = self.movementSpeed
@@ -127,6 +102,7 @@ class Tatch(tk.Tk):
         if (event.char == "q" or event.char == "e"):
             self.yStep = 0
 
-tatch = Tatch()
-tatch.after(0, tatch.gameLoop)
-tatch.mainloop()
+if __name__ == "__main__":
+    tatch = Tatch()
+    tatch.after(0, tatch.gameLoop)
+    tatch.mainloop()

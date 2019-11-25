@@ -11,10 +11,10 @@ class Camera(object):
     def generateCanvasCoordinates(clippingPlanes, fieldOfView, aspectRatio):
         (clipNearZ, clipFarZ) = clippingPlanes
 
-        canvasRight  = math.tan(fieldOfView / 2) * clipNearZ
-        canvasLeft   = -canvasRight
-        canvasTop    = canvasRight / aspectRatio
-        canvasBottom = -canvasTop
+        canvasRight  = float(math.tan(fieldOfView / 2) * clipNearZ)
+        canvasLeft   = float(-canvasRight)
+        canvasTop    = float(canvasRight / aspectRatio)
+        canvasBottom = float(-canvasTop)
 
         return (canvasTop, canvasBottom, canvasRight, canvasLeft)
 
@@ -32,12 +32,12 @@ class Camera(object):
         # Create the 4x4 matrix shell to populate with data, then populate
         projMatrix = Matrix(4,4)
 
-        projMatrix.values[0][0] = scaleFactor
-        projMatrix.values[1][1] = scaleFactor
-        projMatrix.values[2][2] = -clipFarZ / (clipFarZ - clipNearZ)
-        projMatrix.values[3][2] = -clipFarZ*clipNearZ / (clipFarZ - clipNearZ)
-        projMatrix.values[2][3] = -1
-        projMatrix.values[3][3] = 0
+        projMatrix.values[0][0] = float(scaleFactor)
+        projMatrix.values[1][1] = float(scaleFactor)
+        projMatrix.values[2][2] = float(-clipFarZ / (clipFarZ - clipNearZ))
+        projMatrix.values[3][2] = float(-clipFarZ*clipNearZ / (clipFarZ - clipNearZ))
+        projMatrix.values[2][3] = float(-1)
+        projMatrix.values[3][3] = float(0)
 
         return projMatrix
 
@@ -56,24 +56,24 @@ class Camera(object):
         origin = worldAxes[0]
 
         # x-axis
-        cameraToWorldMatrix.values[0][0] = worldAxes[1].x
-        cameraToWorldMatrix.values[0][1] = worldAxes[1].y
-        cameraToWorldMatrix.values[0][2] = worldAxes[1].z
+        cameraToWorldMatrix.values[0][0] = float(worldAxes[1].x)
+        cameraToWorldMatrix.values[0][1] = float(worldAxes[1].y)
+        cameraToWorldMatrix.values[0][2] = float(worldAxes[1].z)
 
         # y-axis
-        cameraToWorldMatrix.values[1][0] = worldAxes[2].x
-        cameraToWorldMatrix.values[1][1] = worldAxes[2].y
-        cameraToWorldMatrix.values[1][2] = worldAxes[2].z
+        cameraToWorldMatrix.values[1][0] = float(worldAxes[2].x)
+        cameraToWorldMatrix.values[1][1] = float(worldAxes[2].y)
+        cameraToWorldMatrix.values[1][2] = float(worldAxes[2].z)
 
         # z-azis
-        cameraToWorldMatrix.values[2][0] = -worldAxes[3].x
-        cameraToWorldMatrix.values[2][1] = -worldAxes[3].y
-        cameraToWorldMatrix.values[2][2] = -worldAxes[3].z
+        cameraToWorldMatrix.values[2][0] = float(-worldAxes[3].x)
+        cameraToWorldMatrix.values[2][1] = float(-worldAxes[3].y)
+        cameraToWorldMatrix.values[2][2] = float(-worldAxes[3].z)
 
         # origin translation
-        cameraToWorldMatrix.values[3][0] = origin.x
-        cameraToWorldMatrix.values[3][1] = origin.y
-        cameraToWorldMatrix.values[3][2] = origin.z
+        cameraToWorldMatrix.values[3][0] = float(origin.x)
+        cameraToWorldMatrix.values[3][1] = float(origin.y)
+        cameraToWorldMatrix.values[3][2] = float(origin.z)
 
         return cameraToWorldMatrix
 
@@ -100,15 +100,13 @@ class Camera(object):
         self.worldToCameraMatrix = Matrix.inverse(self.cameraToWorldMatrix)
 
     def worldToCamera(self, vectorW):
-        output = self.worldToCameraMatrix.pointVectorMultiply(vectorW)
-        return output
+        return self.worldToCameraMatrix.pointVectorMultiply(vectorW)
 
     def cameraToScreen(self, vectorC):
         # The screen should only show things in front of the camera (i.e.
         #   positive camera coords)
         if (vectorC.z > 0):
-            output = self.projMatrix.pointVectorMultiply(vectorC)
-            return output
+            return self.projMatrix.pointVectorMultiply(vectorC)
         else:
             return None
 
@@ -116,35 +114,20 @@ class Camera(object):
         if (vectorS is None):
             return None
 
-        # Get the (x,y) point from the screen vector since the (z) is unneeded
-        (x,y) = (vectorS.x, vectorS.y)
-
         # Screen coordinates must be within [-1,1] for raster projection
-        if (constrained and ((x < -1.1 or x > 1.1) or (y < -1.1 or y > 1.1))):
+        if (constrained and ((vectorS.x < -1.1 or vectorS.x > 1.1) or (vectorS.y < -1.1 or vectorS.y > 1.1))):
             return None
         else:
             # TODO: Decide in int() or roundHalfUp()
             # Normalize (x,y) to [0,1]
-            normX = (x + 1) / 2
-            normY = (y + 1) / 2
+            normX = (vectorS.x + 1) / 2
+            normY = (vectorS.y + 1) / 2
 
             rasterX = int(min(self.imageWidth -1,normX    *self.imageWidth ))
             rasterY = int(min(self.imageHeight-1,(1-normY)*self.imageHeight))
 
-            return(rasterX, rasterY)
+            return (rasterX, rasterY)
 
     # Take a world coordinate and tranform it to raster coordinates.
     def worldToRaster(self, vectorW, constrained):
         return self.screenToRaster(self.cameraToScreen(self.worldToCamera(vectorW)), constrained)
-
-    # Generate a raster given a list of world vectors.
-    def generateRaster(self, listVectorW, constrained=True):
-        raster = dict()
-
-        for vectorW in listVectorW:
-            rasterPos = self.worldToRaster(vectorW, constrained)
-
-            if (rasterPos is not None):
-                raster[rasterPos] = 255
-
-        return raster

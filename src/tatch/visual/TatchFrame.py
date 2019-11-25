@@ -14,7 +14,7 @@ class TatchFrame(tk.Frame):
         self.tatchCanvas = TatchCanvas(width=width, height=height)
         self.tatchCanvas.pack()
 
-    def drawTerrainFromVectors(self, terrainVectors):
+    def drawTerrainFromVectors(self, terrainVectors, terrainColor="black"):
         terrainLineIds = []
 
         # Iterate over the rhombus strips
@@ -27,7 +27,7 @@ class TatchFrame(tk.Frame):
                     (x1, y1) = terrainVectors[x+1][z]
                     (x2, y2) = terrainVectors[x][z+1]
 
-                    terrainLineIds.append(self.tatchCanvas.create_line(x0, y0, x1, y1, x2, y2))
+                    terrainLineIds.append(self.tatchCanvas.create_line(x0, y0, x1, y1, x2, y2, fill=terrainColor))
 
         return terrainLineIds
 
