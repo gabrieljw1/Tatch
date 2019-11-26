@@ -1,37 +1,43 @@
 from matrix.Vector import Vector
 import numpy as np
 import noise
+import time
 
 class TerrainGenerator(object):
-    def __init__(self, dims, scale, pOctaves=6, pPersistence=0.5, pLacunarity=2.0):
+    def __init__(self, dims, scale, spread, pOctaves=6):
         self.dims = dims
         self.scale = scale
+        self.spread = spread
         self.pOctaves = pOctaves
-        self.pPersistence = pPersistence
-        self.pLacunarity = pLacunarity
 
     def generateGrid(self, xShift, yShift):
         grid = np.zeros(self.dims)
         (width, height) = (self.dims)
 
-        for x in range(width):
-            scaledShiftedX = (x + xShift) / self.scale
+        scale = self.scale
+        octaves = self.pOctaves
 
-            for y in range(height):
+        xRange = range(width)
+        yRange = range(height)
+
+        for x in xRange:
+            scaledShiftedX = (x + xShift) / scale
+
+            for y in yRange:
                 grid[x][y] = float(5.0*noise.pnoise2(scaledShiftedX,
-                                            (y + yShift)/self.scale,
-                                            octaves=self.pOctaves,
-                                            persistence=self.pPersistence,
-                                            lacunarity=self.pLacunarity,
-                                            repeatx=1024,
-                                            repeaty=1024,
-                                            base=0))
+                                            (y + yShift)/scale,
+                                            octaves=octaves))
 
         return grid
 
-    def generateTerrainVectors(self, xOffset, yOffset, zOffset, zSign = 1.0, xShift=0.0, zShift=0.0):
+    def generateTerrainVectors(self, terrainOffsetVector, zSign, xShift, zShift):
         perlinGrid = self.generateGrid(xShift, zShift)
 
-        yeet = len(perlinGrid[0])
+        yank = len(perlinGrid)
+        yeet = range(len(perlinGrid[0]))
 
-        return [[ Vector(x + xOffset, perlinGrid[x][z] + yOffset, zSign * (z + zOffset)) for z in range(yeet)] for x in range(len(perlinGrid))]
+        offsetX = terrainOffsetVector.x
+        offsetY = terrainOffsetVector.y
+        offsetZ = terrainOffsetVector.z
+
+        return [[ Vector(self.spread*(x - yank//2) + offsetX, perlinGrid[x][z] + offsetY, (zSign * (self.spread*z + offsetZ))) for z in yeet] for x in range(len(perlinGrid))]

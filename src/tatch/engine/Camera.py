@@ -114,20 +114,34 @@ class Camera(object):
         if (vectorS is None):
             return None
 
+        x = vectorS.x
+        y = vectorS.y
+
         # Screen coordinates must be within [-1,1] for raster projection
-        if (constrained and ((vectorS.x < -1.1 or vectorS.x > 1.1) or (vectorS.y < -1.1 or vectorS.y > 1.1))):
+        if (constrained and ((x < -1.05 or x > 1.05) or (y < -1.05 or y > 1.05))):
             return None
         else:
             # TODO: Decide in int() or roundHalfUp()
             # Normalize (x,y) to [0,1]
-            normX = (vectorS.x + 1) / 2
-            normY = (vectorS.y + 1) / 2
+            normX = (x + 1) / 2
+            normY = (y + 1) / 2
 
-            rasterX = int(min(self.imageWidth -1,normX    *self.imageWidth ))
-            rasterY = int(min(self.imageHeight-1,(1-normY)*self.imageHeight))
+            rasterX = int(normX    *self.imageWidth )
+            rasterY = int((1-normY)*self.imageHeight)
 
             return (rasterX, rasterY)
 
     # Take a world coordinate and tranform it to raster coordinates.
     def worldToRaster(self, vectorW, constrained):
         return self.screenToRaster(self.cameraToScreen(self.worldToCamera(vectorW)), constrained)
+
+    def generateRaster(self, listVectorW, constrained=True):
+        raster = dict()
+
+        for vectorW in listVectorW:
+            rasterPos = self.worldToRaster(vectorW, constrained)
+
+            if (rasterPos is not None):
+                raster[rasterPos] = 255
+
+        return raster
