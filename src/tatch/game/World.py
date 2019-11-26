@@ -1,10 +1,10 @@
 import math
 
 import tkinter as tk
-from matrix.Vector import Vector
-from matrix.Matrix import Matrix
-from terrain.TerrainGenerator import TerrainGenerator
-from engine.Camera import Camera
+from game.matrix.Vector import Vector
+from game.matrix.Matrix import Matrix
+from game.terrain.TerrainGenerator import TerrainGenerator
+from game.engine.Camera import Camera
 import time
 
 

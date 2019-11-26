@@ -1,6 +1,6 @@
 import numpy
 
-from matrix.Vector import Vector
+from game.matrix.Vector import Vector
 
 # A matrix object. Self explanatory.
 class Matrix(object):

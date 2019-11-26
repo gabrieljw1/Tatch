@@ -1,5 +1,5 @@
-from matrix.Matrix import Matrix
-from matrix.Vector import Vector
+from game.matrix.Matrix import Matrix
+from game.matrix.Vector import Vector
 
 class Entity(object):
     @staticmethod
@@ -31,13 +31,14 @@ class Entity(object):
     # Hitbox is a list of 4 vectors that define a cube. They are in object
     #   coordinates. To get them to world coordinates, multiply them by this
     #   object's transformation matrix.
-    def __init__(self, entityToWorldMatrix, hitboxVectorList):
+    def __init__(self, entityToWorldMatrix, hitboxVectorList, velocityVector = Vector(0,0,0)):
         if (len(hitboxVectorList) != 2):
             raise Exception("Invalid hitbox vector list length")
 
         self.entityToWorldMatrix = entityToWorldMatrix
         self.worldToEntityMatrix = Matrix.inverse( self.entityToWorldMatrix )
         self.hitboxVectorList = hitboxVectorList
+        self.velocityVector = velocityVector
 
         self.cachedWorldHitboxVectors = []
         self.cachedEntityHitboxVertexVectors = []
@@ -51,6 +52,8 @@ class Entity(object):
         self.entityToWorldMatrix.values[3][0] += dx
         self.entityToWorldMatrix.values[3][1] += dy
         self.entityToWorldMatrix.values[3][2] += dz
+
+        self.worldToEntityMatrix = Matrix.inverse( self.entityToWorldMatrix )
 
         self.regenWorldHitboxVectors = True
         self.regenEntityHitboxVertexVectors = True

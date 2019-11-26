@@ -1,7 +1,7 @@
 import math
 
-from matrix.Vector import Vector
-from matrix.Matrix import Matrix
+from game.matrix.Vector import Vector
+from game.matrix.Matrix import Matrix
 
 class Camera(object):
     # Generate the boundaries of the canvas. The canvas referenced here

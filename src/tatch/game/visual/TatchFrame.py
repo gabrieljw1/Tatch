@@ -1,5 +1,5 @@
 import tkinter as tk
-from visual.TatchCanvas import TatchCanvas
+from game.visual.TatchCanvas import TatchCanvas
 
 class TatchFrame(tk.Frame):
     def __init__(self, parent, width, height):
@@ -37,7 +37,7 @@ class TatchFrame(tk.Frame):
         for pos1 in raster:
             for pos2 in raster:
                 if (pos1 != pos2):
-                    cubeLineIds.append(self.tatchCanvas.create_line(*pos1, *pos2, fill=color))
+                    cubeLineIds.append(self.tatchCanvas.create_line(*pos1, *pos2, fill=color, width=3))
 
         return cubeLineIds
 

@@ -1,4 +1,4 @@
-from matrix.Vector import Vector
+from game.matrix.Vector import Vector
 import numpy as np
 import noise
 import time
