@@ -88,7 +88,6 @@ class Camera(object):
 
 
         # Calculate all perspective information
-
         (self.cTop, self.cBottom, self.cRight, self.cLeft) =\
             Camera.generateCanvasCoordinates(clippingPlanes, fieldOfView,\
                 self.aspectRatio)
@@ -118,6 +117,9 @@ class Camera(object):
         y = vectorS.y
 
         # Screen coordinates must be within [-1,1] for raster projection
+        # Here, instead of a strict [-1,1], there is a buffer added so that any
+        #   vertices that are *just* off screen are drawn and the lines that
+        #   end or begin on that point are also visualized.
         if (constrained and ((x < -1.05 or x > 1.05) or (y < -1.05 or y > 1.05))):
             return None
         else:
@@ -126,6 +128,8 @@ class Camera(object):
             normX = (x + 1) / 2
             normY = (y + 1) / 2
 
+            # Scale the [0,1] to [0, dimension] where dimension is the image
+            #   width or height depending on X or Y.
             rasterX = int(normX    *self.imageWidth )
             rasterY = int((1-normY)*self.imageHeight)
 
@@ -135,7 +139,8 @@ class Camera(object):
     def worldToRaster(self, vectorW, constrained):
         return self.screenToRaster(self.cameraToScreen(self.worldToCamera(vectorW)), constrained)
 
-    def generateRaster(self, listVectorW, constrained=True):
+    # Given a list of world vectors, return a raster of the screen points.
+    def generateRaster(self, listVectorW, constrained=False):
         raster = dict()
 
         for vectorW in listVectorW:

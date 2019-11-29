@@ -11,7 +11,11 @@ import decimal, random, time
 import copy
 
 class Tatch(tk.Tk):
-    def __init__(self, width=1440, height=800):
+    # To the TA reading this: here are the controls
+    # WASD to move over the terrain
+    # Q/E  to change the height of enemies
+    # SPACE to shoot (killing an enemy spawns a new one)
+    def __init__(self, width=1080, height=720):
         super().__init__()
 
         # Set instance variables and create the visual frame
@@ -44,6 +48,7 @@ class Tatch(tk.Tk):
         # Create the Game objects
         self.world = World( (self.width, self.height), fieldOfView, clippingPlanes, originVector, terrainDims, terrainScale, terrainOffsetVector, terrainSpread)
         self.timerDelay = 1000//30
+        self.score = 0
 
         self.terrainLineIdsList = []
 
@@ -55,6 +60,7 @@ class Tatch(tk.Tk):
         self.tatchFrame.tatchCanvas.config(background=self.backgroundColor)
 
 
+
         # Overlay specifications
         self.overlayMargin = 10 # Margin from borders of screen to not draw in
         self.overlayPauseSize = min( self.width // 20, self.height // 20 ) # Side length of pause button (square)
@@ -62,8 +68,8 @@ class Tatch(tk.Tk):
 
         self.overlayPauseSelected = False
         self.overlayPauseId = None
-
         self.overlayMenuId = None
+        self.overlayScoreId = None
 
 
         # Bind key event methods
@@ -72,14 +78,13 @@ class Tatch(tk.Tk):
         self.bind("<Motion>", self.mouseMoved)
         self.bind("<Button>", self.mousePressed)
 
+        self.resizable(False, False)
+
 
         # Entities
         self.entities = []
 
-        #player = self.generateEntity(Vector(0, -6, -20), 5)
-        enemy = self.generateEntity(Vector(5, -1, -25), 5)
-
-        self.entities.append(enemy)
+        self.spawnEnemy(Vector(0, 0, -25))
         self.cubeLineIdsList = []
 
     # Generate an entity at a given position and hitbox radius.
@@ -102,7 +107,7 @@ class Tatch(tk.Tk):
     # Launch a projectile from the origin going forward.
     def launchProjectile(self, hitboxRadius, velocityVector, damage):
         # Start at the origin and get the axes
-        positionVector = Vector(0,0,0)
+        positionVector = Vector(0,0,-hitboxRadius)
         entityAxes = [positionVector, self.world.axes[1], self.world.axes[2], self.world.axes[3]]
         
         # Generate the Entity-To-World transformation matrix from the axes
@@ -114,9 +119,14 @@ class Tatch(tk.Tk):
         hitboxVectorHigh = Vector(positionVector.x + hitboxRadius, positionVector.y + hitboxRadius, positionVector.z + hitboxRadius)
 
         # Create the projectile and add it to the list.
-        proj = Projectile(entityMatrix, [hitboxVectorLow, hitboxVectorHigh], velocityVector, 10)
+        proj = Projectile(entityMatrix, [hitboxVectorLow, hitboxVectorHigh], velocityVector, 5)
 
         self.entities.append(proj)
+
+    def spawnEnemy(self, positionVector):
+        enemy = self.generateEntity(positionVector, 5)
+
+        self.entities.append(enemy)
 
     # Draw the terrain from the terrain cache
     def drawTerrain(self):
@@ -159,6 +169,7 @@ class Tatch(tk.Tk):
     def drawOverlay(self, pauseButtonSelected):
         self.tatchFrame.tatchCanvas.delete(self.overlayPauseId)
         self.tatchFrame.tatchCanvas.delete(self.overlayMenuId)
+        self.tatchFrame.tatchCanvas.delete(self.overlayScoreId)
 
         if (not pauseButtonSelected):
             self.overlayPauseId = self.tatchFrame.tatchCanvas.create_rectangle(self.width - self.overlayMargin,\
@@ -179,6 +190,9 @@ class Tatch(tk.Tk):
                                                                                 self.width - self.overlayMargin,\
                                                                                 self.height - self.overlayMargin,\
                                                                                 fill = "white")
+
+        self.overlayScoreId = self.tatchFrame.tatchCanvas.create_text(self.width//2, 20, text=f"Score: {self.score}", fill="white")
+
 
     # Draw all objects
     def drawAll(self, drawTerrain):
@@ -219,19 +233,13 @@ class Tatch(tk.Tk):
         else:
             self.yStep = 0
 
-        # Launch (for now)
-        if (" " in self.keysPressed):
-            self.launchProjectile(5, Vector(0, 0, -10), 5)
-
-        # Escape
-        if ("\x1b" in self.keysPressed):
-            self.pause()
-
         if (not self.paused):
             # Move the first entity if WASD is pressed
             if (self.xStep != 0 or self.yStep != 0 or self.zStep != 0):
                 self.shiftTerrain(self.xStep, self.zStep)
-                self.entities[0].translate(-self.xStep, self.yStep, self.zStep)
+                if (len(self.entities) > 0):
+                    
+                    self.entities[0].translate(-self.xStep, self.yStep, self.zStep)
 
                 self.updateTerrain = True
 
@@ -247,10 +255,11 @@ class Tatch(tk.Tk):
             # Check collisions between the first and second entity
             if (len(self.entities) > 1):
                 if (self.entities[0].collidesWith(self.entities[1])):
-                    self.entities.remove(self.entities[1])
-                    self.swapTerrainColors()
+                    self.entities = []
 
-                    self.after(100, self.swapTerrainColors)
+                    self.score += 100
+
+                    self.spawnEnemy(Vector(random.randint(-15,15), random.randint(1, 3), random.randint(-35, -25)))
 
                     self.updateTerrain = True
 
@@ -287,11 +296,18 @@ class Tatch(tk.Tk):
     # If a key is pressed, do a certain action. Used for WASD/QE, projectile
     #   launching, pause menu with ESC
     def keyDown(self, event):
-        self.keysPressed.add(event.char)
+        # Escape
+        if (event.char == "\x1b"):
+            self.pause()
+        elif (event.char == " "): # Launch
+            self.launchProjectile(5, Vector(0, 0, -4), 5)
+        else:
+            self.keysPressed.add(event.char)
 
     # Stop moving if WASD/QE is released
     def keyUp(self, event):
-        self.keysPressed.remove(event.char)
+        if (event.char in self.keysPressed):
+            self.keysPressed.remove(event.char)
 
     def pause(self):
         self.paused = not self.paused
