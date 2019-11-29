@@ -20,8 +20,4 @@ class Vector(object):
 
     def __hash__(self):
         return hash( (self.x, self.y, self.z, self.w) )
-
-    # Here, 'greater than' is defined as having a greater sum of x,y,z. This is
-    #   used for vector hitbox calculation.
-    def __gt__(self, other):
-        return isinstance(other, Vector) and (self.x + self.y + self.z) > (other.x + other.y + other.z)
+        

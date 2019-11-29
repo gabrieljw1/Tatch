@@ -107,7 +107,7 @@ class Tatch(tk.Tk):
     # Launch a projectile from the origin going forward.
     def launchProjectile(self, hitboxRadius, velocityVector, damage):
         # Start at the origin and get the axes
-        positionVector = Vector(0,0,-hitboxRadius)
+        positionVector = Vector(0,0,0)
         entityAxes = [positionVector, self.world.axes[1], self.world.axes[2], self.world.axes[3]]
         
         # Generate the Entity-To-World transformation matrix from the axes
@@ -123,10 +123,14 @@ class Tatch(tk.Tk):
 
         self.entities.append(proj)
 
+        print( proj.getPosition() )
+
     def spawnEnemy(self, positionVector):
         enemy = self.generateEntity(positionVector, 5)
 
         self.entities.append(enemy)
+
+        print(enemy.getPosition())
 
     # Draw the terrain from the terrain cache
     def drawTerrain(self):
@@ -300,7 +304,7 @@ class Tatch(tk.Tk):
         if (event.char == "\x1b"):
             self.pause()
         elif (event.char == " "): # Launch
-            self.launchProjectile(5, Vector(0, 0, -4), 5)
+            self.launchProjectile(1, Vector(0, 0, -4), 5)
         else:
             self.keysPressed.add(event.char)
 

@@ -48,6 +48,15 @@ class Entity(object):
         self.regenEntityHitboxVertexVectors = True
         self.regenWorldHitboxVertexVectors = True
 
+    def getPosition(self):
+        transformationMatrixValues = self.worldToEntityMatrix.values
+
+        x = transformationMatrixValues[3][0]
+        y = transformationMatrixValues[3][1]
+        z = transformationMatrixValues[3][2]
+
+        return Vector(x,y,z)
+
     def translate(self, dx, dy, dz):
         self.entityToWorldMatrix.values[3][0] += dx
         self.entityToWorldMatrix.values[3][1] += dy
@@ -109,26 +118,37 @@ class Entity(object):
         thisWorldHitboxVectors = self.getWorldHitboxVectors()
         otherWorldHitboxVectors = other.getWorldHitboxVectors()
 
-        minOther = min(otherWorldHitboxVectors)
-        maxOther = max(otherWorldHitboxVectors)
+        minOtherX = min([vector.x for vector in otherWorldHitboxVectors])
+        minOtherY = min([vector.y for vector in otherWorldHitboxVectors])
+        minOtherZ = min([vector.z for vector in otherWorldHitboxVectors])
+        
+        maxOtherX = max([vector.x for vector in otherWorldHitboxVectors])
+        maxOtherY = max([vector.y for vector in otherWorldHitboxVectors])
+        maxOtherZ = max([vector.z for vector in otherWorldHitboxVectors])
 
-        minThis  = min(thisWorldHitboxVectors)
-        maxThis  = max(thisWorldHitboxVectors)
+
+        minThisX = min([vector.x for vector in thisWorldHitboxVectors])
+        minThisY = min([vector.y for vector in thisWorldHitboxVectors])
+        minThisZ = min([vector.z for vector in thisWorldHitboxVectors])
+
+        maxThisX = max([vector.x for vector in thisWorldHitboxVectors])
+        maxThisY = max([vector.y for vector in thisWorldHitboxVectors])
+        maxThisZ = max([vector.z for vector in thisWorldHitboxVectors])
 
         collidesX = False
         collidesY = False
         collidesZ = False
 
-        if (minOther.x <= maxThis.x and maxThis.x <= maxOther.x) \
-                or (minOther.x <= minThis.x and minThis.x <= maxOther.x):
+        if (minOtherX <= maxThisX and maxThisX <= maxOtherX) \
+                or (minOtherX <= minThisX and minThisX <= maxOtherX):
             collidesX = True
 
-        if (minOther.y <= maxThis.y and maxThis.y <= maxOther.y) \
-                or (minOther.y <= minThis.y and minThis.y <= maxOther.y):
+        if (minOtherY <= maxThisY and maxThisY <= maxOtherY) \
+                or (minOtherY <= minThisY and minThisY <= maxOtherY):
             collidesY = True
 
-        if (minOther.z <= maxThis.z and maxThis.z <= maxOther.z) \
-                or (minOther.z <= minThis.z and minThis.z <= maxOther.z):
+        if (minOtherZ <= maxThisZ and maxThisZ <= maxOtherZ) \
+                or (minOtherZ <= minThisZ and minThisZ <= maxOtherZ):
             collidesZ = True
 
         return collidesX and collidesY and collidesZ
