@@ -151,4 +151,4 @@ class Entity(object):
                 or (minOtherZ <= minThisZ and minThisZ <= maxOtherZ):
             collidesZ = True
 
-        return collidesX and collidesY and collidesZ
+        return (collidesX and collidesY and collidesZ)

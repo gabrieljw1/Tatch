@@ -120,7 +120,7 @@ class Camera(object):
         # Here, instead of a strict [-1,1], there is a buffer added so that any
         #   vertices that are *just* off screen are drawn and the lines that
         #   end or begin on that point are also visualized.
-        if (constrained and ((x < -1.05 or x > 1.05) or (y < -1.05 or y > 1.05))):
+        if (constrained and ((x < -1.1 or x > 1.1) or (y < -1.1 or y > 1.1))):
             return None
         else:
             # TODO: Decide in int() or roundHalfUp()

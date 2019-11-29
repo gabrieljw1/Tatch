@@ -123,14 +123,10 @@ class Tatch(tk.Tk):
 
         self.entities.append(proj)
 
-        print( proj.getPosition() )
-
     def spawnEnemy(self, positionVector):
         enemy = self.generateEntity(positionVector, 5)
 
         self.entities.append(enemy)
-
-        print(enemy.getPosition())
 
     # Draw the terrain from the terrain cache
     def drawTerrain(self):
@@ -258,7 +254,7 @@ class Tatch(tk.Tk):
 
             # Check collisions between the first and second entity
             if (len(self.entities) > 1):
-                if (self.entities[0].collidesWith(self.entities[1])):
+                if (self.entities[0].collidesWith(self.entities[1]) or self.entities[1].collidesWith(self.entities[0])):
                     self.entities = []
 
                     self.score += 100
