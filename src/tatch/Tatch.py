@@ -7,6 +7,7 @@ from game.entity.Entity import Entity
 from game.entity.Projectile import Projectile
 from game.World import World
 from game.visual.TatchFrame import TatchFrame
+from overlay.Overlay import Overlay
 import decimal, random, time
 import copy
 
@@ -26,12 +27,13 @@ class Tatch(tk.Tk):
 
         # View Variables
         fieldOfView = 90
-        clippingPlanes = (0.1, 100)
+        self.clippingPlanes = (0.1, 100)
         originVector = Vector(0, -14, 0)
         terrainDims = (54, 29)
         terrainScale = 6.4
         terrainOffsetVector = Vector(0.0, 0.0, 12.0)
         terrainSpread = 1.8
+
 
         # Game update variables
         self.paused = False
@@ -46,7 +48,7 @@ class Tatch(tk.Tk):
         
 
         # Create the Game objects
-        self.world = World( (self.width, self.height), fieldOfView, clippingPlanes, originVector, terrainDims, terrainScale, terrainOffsetVector, terrainSpread)
+        self.world = World( (self.width, self.height), fieldOfView, self.clippingPlanes, originVector, terrainDims, terrainScale, terrainOffsetVector, terrainSpread)
         self.timerDelay = 1000//30
         self.score = 0
 
@@ -60,16 +62,19 @@ class Tatch(tk.Tk):
         self.tatchFrame.tatchCanvas.config(background=self.backgroundColor)
 
 
+        # Player variables
+        self.ammoCount = 0
+        self.healthPoints = 100
+
 
         # Overlay specifications
         self.overlayMargin = 10 # Margin from borders of screen to not draw in
         self.overlayPauseSize = min( self.width // 20, self.height // 20 ) # Side length of pause button (square)
         self.overlayPauseSizeSelectionModifier = 1.4 # How much to expand pause button upon selection
 
+        self.overlay = Overlay(self.width, self.height, self.tatchFrame.tatchCanvas, self.overlayMargin, self.overlayPauseSize, self.overlayPauseSizeSelectionModifier)
+
         self.overlayPauseSelected = False
-        self.overlayPauseId = None
-        self.overlayMenuId = None
-        self.overlayScoreId = None
 
 
         # Bind key event methods
@@ -165,43 +170,13 @@ class Tatch(tk.Tk):
 
         self.cubeLineIdsList = cubeIds
 
-    # Draw the overlay (pause button, pause menu if paused, etc.)
-    def drawOverlay(self, pauseButtonSelected):
-        self.tatchFrame.tatchCanvas.delete(self.overlayPauseId)
-        self.tatchFrame.tatchCanvas.delete(self.overlayMenuId)
-        self.tatchFrame.tatchCanvas.delete(self.overlayScoreId)
-
-        if (not pauseButtonSelected):
-            self.overlayPauseId = self.tatchFrame.tatchCanvas.create_rectangle(self.width - self.overlayMargin,\
-                                                        self.overlayMargin,\
-                                                        self.width - self.overlayMargin - self.overlayPauseSize,\
-                                                        self.overlayMargin + self.overlayPauseSize,\
-                                                        fill = "white", outline= "white")
-        else:
-            self.overlayPauseId = self.tatchFrame.tatchCanvas.create_rectangle(self.width - self.overlayMargin,\
-                                                        self.overlayMargin,\
-                                                        self.width - self.overlayMargin - self.overlayPauseSizeSelectionModifier*self.overlayPauseSize,\
-                                                        self.overlayMargin + self.overlayPauseSizeSelectionModifier*self.overlayPauseSize,\
-                                                        fill = "white", outline= "white")
-
-        if (self.paused):
-            self.overlayMenuId = self.tatchFrame.tatchCanvas.create_rectangle(self.overlayMargin,\
-                                                                                self.overlayMargin,\
-                                                                                self.width - self.overlayMargin,\
-                                                                                self.height - self.overlayMargin,\
-                                                                                fill = "white")
-
-        self.overlayScoreId = self.tatchFrame.tatchCanvas.create_text(self.width//2, 20, text=f"Score: {self.score}", fill="white")
-
-
     # Draw all objects
     def drawAll(self, drawTerrain):
         if (drawTerrain):
             self.drawTerrain()
         
         self.drawEntities()
-        
-        self.drawOverlay(self.overlayPauseSelected)
+        self.overlay.redrawOverlay(self.overlayPauseSelected, self.healthPoints, self.ammoCount, self.score, self.paused)
 
     # For use when visualizing a hitbox collision. Swap the terrain color and
     #   its alternate.
@@ -249,7 +224,9 @@ class Tatch(tk.Tk):
                 if (entity.velocityVector != Vector(0,0,0)):
                     entity.translate(entity.velocityVector.x, entity.velocityVector.y, entity.velocityVector.z)
 
-                if (isinstance(entity, Projectile) and abs(entity.entityToWorldMatrix.values[3][2]) > 100):
+                (near, far) = self.clippingPlanes
+
+                if (abs(entity.entityToWorldMatrix.values[3][2]) > far):
                     self.entities.remove(entity)
 
             # Check collisions between the first and second entity
