@@ -48,7 +48,7 @@ class Overlay(object):
                                                         self.height - self.margin - self.pauseSize,\
                                                         fill = "red", outline = "white")
 
-        shieldBarId = self.tatchCanvas.create_rectangle(self.width - self.margin - (100 - shieldPoints)/100*(self.pauseSize*6),\
+        shieldBarId = self.tatchCanvas.create_rectangle(self.width - self.margin - (25 - shieldPoints)/100*(self.pauseSize*6),\
                                                         self.height - 2*self.margin - self.pauseSize,\
                                                         self.width - self.margin - self.pauseSize*6,\
                                                         self.height - 2*self.margin - 2*self.pauseSize,\

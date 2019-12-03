@@ -64,7 +64,7 @@ class Tatch(tk.Tk):
         # Player variables
         self.ammoCount = 0
         self.healthPoints = 100
-        self.shieldPoints = 100
+        self.shieldPoints = 25
 
 
         # Overlay specifications
@@ -84,6 +84,10 @@ class Tatch(tk.Tk):
         self.bind("<Button>", self.mousePressed)
 
         self.resizable(False, False)
+
+
+        # Player shit
+        self.playerEntity = self.generateEntity(Vector(originVector.x,originVector.y/4,originVector.z), 5)
 
 
         # Entities
@@ -123,7 +127,7 @@ class Tatch(tk.Tk):
         hitboxVectorHigh = Vector(+hitboxRadius, +hitboxRadius, +hitboxRadius)
 
         # Create the projectile and add it to the list.
-        proj = Projectile(entityMatrix, [hitboxVectorLow, hitboxVectorHigh], velocityVector, 5, launchedByEnemy)
+        proj = Projectile(entityMatrix, [hitboxVectorLow, hitboxVectorHigh], velocityVector, damage, launchedByEnemy)
 
         self.entities.append(proj)
 
@@ -221,12 +225,6 @@ class Tatch(tk.Tk):
                 for entity in self.entities:
                     entity.translate(-self.xStep, 0, self.zStep)
 
-                print()
-                print("start")
-                print(type(entity))
-                print(entity.hitboxVectorList)
-                print(entity.getWorldHitboxVectors())
-
                 self.updateTerrain = True 
 
             # Move each entity by their velocity and destroy if they leave the 
@@ -246,19 +244,27 @@ class Tatch(tk.Tk):
 
                 if isinstance(entity, Enemy):
                     if self.enemySpawnTimer > self.enemySpawnDelay:
-                        self.launchProjectileFromEnemy(entity, 1.25, 5, 12)
+                        self.launchProjectileFromEnemy(entity, 1.25, 5, 15)
                         self.enemySpawnTimer = 0
 
             # Check collisions between projectiles and enemies
             for entity in self.entities:
                 if (isinstance(entity, Projectile)):
                     for otherEntity in self.entities:
-                        if (entity != otherEntity and\
-                                (entity.collidesWith(otherEntity) or otherEntity.collidesWith(entity)) and\
-                                not entity.spawnedByEnemy):
-                            self.entities.remove(otherEntity)
-                            self.entities.remove(entity)
-                            self.updateTerrain = True
+                        if (entity != otherEntity):
+                            if (not entity.spawnedByEnemy):
+                                if entity.collidesWith(otherEntity) or otherEntity.collidesWith(entity):
+                                    self.entities.remove(otherEntity)
+                                    self.entities.remove(entity)
+                                    self.updateTerrain = True
+                            else:
+                                if entity.collidesWith(self.playerEntity) or self.playerEntity.collidesWith(entity):
+                                    self.playerHit(entity.strength)
+                                    self.updateTerrain = True
+
+                                    if entity in self.entities:
+                                        self.entities.remove(entity)
+
 
             # If there are no enemies
             if (len(self.entities) == 0) or (len(self.entities) == 1 and isinstance(self.entities[0], Projectile)):
@@ -281,6 +287,18 @@ class Tatch(tk.Tk):
             self.after(end-start + 25, self.gameLoop)
         else:
             self.after(self.timerDelay, self.gameLoop)
+
+    def playerHit(self, power):
+        if (self.shieldPoints > 0):
+            self.shieldPoints -= power
+
+            if (self.shieldPoints < 0):
+                self.shieldPoints = 0
+        else:
+            self.healthPoints -= power
+
+            if (self.healthPoints < 0):
+                self.healthPoints = 0
 
     # Whenever the mouse is moved, check to see if it is over a clickable button
     def mouseMoved(self, event):
