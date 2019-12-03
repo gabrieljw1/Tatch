@@ -5,6 +5,7 @@ from game.matrix.Vector import Vector
 from game.matrix.Matrix import Matrix
 from game.entity.Entity import Entity
 from game.entity.Projectile import Projectile
+from game.entity.Enemy import Enemy
 from game.World import World
 from game.visual.TatchFrame import TatchFrame
 from overlay.Overlay import Overlay
@@ -12,11 +13,7 @@ import decimal, random, time
 import copy
 
 class Tatch(tk.Tk):
-    # To the TA reading this: here are the controls
-    # WASD to move over the terrain
-    # Q/E  to change the height of enemies
-    # SPACE to shoot (killing an enemy spawns a new one)
-    def __init__(self, width=1080, height=720):
+    def __init__(self, width=1080, height=720): 
         super().__init__()
 
         # Set instance variables and create the visual frame
@@ -37,12 +34,12 @@ class Tatch(tk.Tk):
 
         # Game update variables
         self.paused = False
+        self.globalTimer = 0
         self.timerDelay = 1000//30
         self.keysPressed = set()
         self.movementSpeed = 1.0
         self.backgroundColor = "black"
         self.terrainColor = "white"
-        self.alternateTerrainColor = "green"
 
         self.geometry(str(self.width) + "x" + str(self.height) + "+0+0")
         
@@ -50,11 +47,13 @@ class Tatch(tk.Tk):
         # Create the Game objects
         self.world = World( (self.width, self.height), fieldOfView, self.clippingPlanes, originVector, terrainDims, terrainScale, terrainOffsetVector, terrainSpread)
         self.timerDelay = 1000//30
+        self.enemySpawnDelay = 1500
+        self.enemySpawnTimer = 0
         self.score = 0
 
         self.terrainLineIdsList = []
 
-        self.zStep, self.xStep, self.yStep = 0.0, 0.0, 0.0
+        self.zStep, self.xStep = 0.0, 0.0
         self.xShift, self.zShift = 0.0, 0.0
 
         self.updateTerrain = True
@@ -65,6 +64,7 @@ class Tatch(tk.Tk):
         # Player variables
         self.ammoCount = 0
         self.healthPoints = 100
+        self.shieldPoints = 100
 
 
         # Overlay specifications
@@ -104,15 +104,14 @@ class Tatch(tk.Tk):
 
         # Generate the 'low' and 'high' vectors. A 'lower' vector is defined as
         #   the vector whose sum of its components (x,y,z) is the lowest.
-        hitboxVectorLow = Vector(positionVector.x - hitboxRadius, positionVector.y - hitboxRadius, positionVector.z - hitboxRadius)
-        hitboxVectorHigh = Vector(positionVector.x + hitboxRadius, positionVector.y + hitboxRadius, positionVector.z + hitboxRadius)
+        hitboxVectorLow = Vector(-hitboxRadius, -hitboxRadius, -hitboxRadius)
+        hitboxVectorHigh = Vector(+hitboxRadius, +hitboxRadius, +hitboxRadius)
 
         return Entity(entityMatrix, [hitboxVectorLow, hitboxVectorHigh])
 
     # Launch a projectile from the origin going forward.
-    def launchProjectile(self, hitboxRadius, velocityVector, damage):
+    def launchProjectile(self, hitboxRadius, velocityVector, damage, positionVector = Vector(0,0,0), launchedByEnemy = False):
         # Start at the origin and get the axes
-        positionVector = Vector(0,0,0)
         entityAxes = [positionVector, self.world.axes[1], self.world.axes[2], self.world.axes[3]]
         
         # Generate the Entity-To-World transformation matrix from the axes
@@ -120,18 +119,35 @@ class Tatch(tk.Tk):
 
         # Generate the 'low' and 'high' vectors. A 'lower' vector is defined as
         #   the vector whose sum of its components (x,y,z) is the lowest.
-        hitboxVectorLow = Vector(positionVector.x - hitboxRadius, positionVector.y - hitboxRadius, positionVector.z - hitboxRadius)
-        hitboxVectorHigh = Vector(positionVector.x + hitboxRadius, positionVector.y + hitboxRadius, positionVector.z + hitboxRadius)
+        hitboxVectorLow = Vector(-hitboxRadius, -hitboxRadius, -hitboxRadius)
+        hitboxVectorHigh = Vector(+hitboxRadius, +hitboxRadius, +hitboxRadius)
 
         # Create the projectile and add it to the list.
-        proj = Projectile(entityMatrix, [hitboxVectorLow, hitboxVectorHigh], velocityVector, 5)
+        proj = Projectile(entityMatrix, [hitboxVectorLow, hitboxVectorHigh], velocityVector, 5, launchedByEnemy)
 
         self.entities.append(proj)
 
-    def spawnEnemy(self, positionVector):
-        enemy = self.generateEntity(positionVector, 5)
+    def launchProjectileFromEnemy(self, enemyEntity, hitboxRadius, velocityMagnitude, damage):
+        enemyPosition = enemyEntity.getPosition()
 
-        self.entities.append(enemy)
+        originVector = self.world.axes[0]
+
+        velocityVector = Vector.getVelocityFromPointToPoint(enemyPosition, Vector(originVector.x,originVector.y/4,originVector.z), velocityMagnitude)
+
+        self.launchProjectile(hitboxRadius, velocityVector, damage, enemyPosition, True)
+
+    def spawnEnemy(self, positionVector, hitboxRadius = 5, health=100, projectileStrength = 10):
+        entityAxes = [positionVector, self.world.axes[1], self.world.axes[2], self.world.axes[3]]
+
+        # Generate the Entity-To-World transformation matrix from the axes
+        entityMatrix = Entity.generateEntityToWorldMatrix(entityAxes)
+
+        # Generate the 'low' and 'high' vectors. A 'lower' vector is defined as
+        #   the vector whose sum of its components (x,y,z) is the lowest.
+        hitboxVectorLow = Vector(-hitboxRadius, -hitboxRadius, -hitboxRadius)
+        hitboxVectorHigh = Vector(+hitboxRadius, +hitboxRadius, +hitboxRadius)
+
+        self.entities.append(Enemy(entityMatrix, [hitboxVectorLow, hitboxVectorHigh], health, projectileStrength))
 
     # Draw the terrain from the terrain cache
     def drawTerrain(self):
@@ -157,16 +173,17 @@ class Tatch(tk.Tk):
         self.tatchFrame.clearTerrainLines(self.cubeLineIdsList)
 
         for entity in self.entities:
-            vertices = self.world.generateRaster(entity.getWorldHitboxVertexVectors())
+            if (entity.visible):
+                vertices = self.world.generateRaster(entity.getWorldHitboxVertexVectors())
 
-            # These colors are included for ease of use when looking at hitboxes
-            if (entity == self.entities[0]):
-                color = "red"
-            else:
-                color = "green"
+                # These colors are included for ease of use when looking at hitboxes
+                if ( isinstance(entity, Enemy) ):
+                    color = "red"
+                else:
+                    color = "green"
 
-            # Store the TKinter line IDs for clearing later
-            cubeIds.extend(self.tatchFrame.drawCube(vertices, color))
+                # Store the TKinter line IDs for clearing later
+                cubeIds.extend(self.tatchFrame.drawCube(vertices, color))
 
         self.cubeLineIdsList = cubeIds
 
@@ -176,12 +193,7 @@ class Tatch(tk.Tk):
             self.drawTerrain()
         
         self.drawEntities()
-        self.overlay.redrawOverlay(self.overlayPauseSelected, self.healthPoints, self.ammoCount, self.score, self.paused)
-
-    # For use when visualizing a hitbox collision. Swap the terrain color and
-    #   its alternate.
-    def swapTerrainColors(self):
-        self.terrainColor, self.alternateTerrainColor = self.alternateTerrainColor, self.terrainColor
+        self.overlay.redrawOverlay(self.overlayPauseSelected, self.healthPoints, self.shieldPoints, self.ammoCount, self.score, self.paused)
 
     def gameLoop(self):
         start = time.time()
@@ -201,22 +213,21 @@ class Tatch(tk.Tk):
         else:
             self.xStep = 0
 
-        if ("q" in self.keysPressed):
-            self.yStep = self.movementSpeed
-        elif ("e" in self.keysPressed):
-            self.yStep = -self.movementSpeed
-        else:
-            self.yStep = 0
-
         if (not self.paused):
             # Move the first entity if WASD is pressed
-            if (self.xStep != 0 or self.yStep != 0 or self.zStep != 0):
+            if (self.xStep != 0 or self.zStep != 0):
                 self.shiftTerrain(self.xStep, self.zStep)
-                if (len(self.entities) > 0):
-                    
-                    self.entities[0].translate(-self.xStep, self.yStep, self.zStep)
 
-                self.updateTerrain = True
+                for entity in self.entities:
+                    entity.translate(-self.xStep, 0, self.zStep)
+
+                print()
+                print("start")
+                print(type(entity))
+                print(entity.hitboxVectorList)
+                print(entity.getWorldHitboxVectors())
+
+                self.updateTerrain = True 
 
             # Move each entity by their velocity and destroy if they leave the 
             #   viewing area.
@@ -226,25 +237,42 @@ class Tatch(tk.Tk):
 
                 (near, far) = self.clippingPlanes
 
-                if (abs(entity.entityToWorldMatrix.values[3][2]) > far):
+                if (isinstance(entity, Projectile) and abs(entity.entityToWorldMatrix.values[3][2]) > 2*far):
                     self.entities.remove(entity)
+                elif (abs(entity.entityToWorldMatrix.values[3][2]) > far):
+                    entity.visible = False
+                elif not entity.visible:
+                        entity.visible = True
 
-            # Check collisions between the first and second entity
-            if (len(self.entities) > 1):
-                if (self.entities[0].collidesWith(self.entities[1]) or self.entities[1].collidesWith(self.entities[0])):
-                    self.entities = []
+                if isinstance(entity, Enemy):
+                    if self.enemySpawnTimer > self.enemySpawnDelay:
+                        self.launchProjectileFromEnemy(entity, 1.25, 5, 12)
+                        self.enemySpawnTimer = 0
 
-                    self.score += 100
+            # Check collisions between projectiles and enemies
+            for entity in self.entities:
+                if (isinstance(entity, Projectile)):
+                    for otherEntity in self.entities:
+                        if (entity != otherEntity and\
+                                (entity.collidesWith(otherEntity) or otherEntity.collidesWith(entity)) and\
+                                not entity.spawnedByEnemy):
+                            self.entities.remove(otherEntity)
+                            self.entities.remove(entity)
+                            self.updateTerrain = True
 
-                    self.spawnEnemy(Vector(random.randint(-15,15), random.randint(1, 3), random.randint(-35, -25)))
-
-                    self.updateTerrain = True
+            # If there are no enemies
+            if (len(self.entities) == 0) or (len(self.entities) == 1 and isinstance(self.entities[0], Projectile)):
+                self.spawnEnemy(Vector(random.randint(-15,15), 0, random.randint(-70, -45)))
+                self.updateTerrain = True
 
         # Draw all objects 
         self.drawAll(self.updateTerrain)
         self.updateTerrain = False
 
         end = time.time()
+
+        # Update all timers
+        self.enemySpawnTimer += self.timerDelay
 
         # This is necessary just in case the game lags. If the game loop takes
         #   longer than the timer delay, then python will pin the CPU usage at
@@ -277,11 +305,11 @@ class Tatch(tk.Tk):
         if (event.char == "\x1b"):
             self.pause()
         elif (event.char == " "): # Launch
-            self.launchProjectile(1, Vector(0, 0, -4), 5)
+            self.launchProjectile(1.25, Vector(0, 0, -4), 18)
         else:
             self.keysPressed.add(event.char)
 
-    # Stop moving if WASD/QE is released
+    # Stop moving if WASD is released
     def keyUp(self, event):
         if (event.char in self.keysPressed):
             self.keysPressed.remove(event.char)
@@ -300,3 +328,7 @@ if __name__ == "__main__":
 #   - Aspect ratio fix
 #   - Add more to HUD
 #   - Documentation and refactor
+#   - Delay between bullet firing so no lag
+
+# To MVP
+#   - Health and Shield are implemented, need a way to decrement/increment

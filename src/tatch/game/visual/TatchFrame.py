@@ -33,11 +33,11 @@ class TatchFrame(tk.Frame):
 
     def drawCube(self, raster, color):
         cubeLineIds = []
-
+        
         for pos1 in raster:
             for pos2 in raster:
                 if (pos1 != pos2):
-                    cubeLineIds.append(self.tatchCanvas.create_line(*pos1, *pos2, fill=color, width=3))
+                    cubeLineIds.append(self.tatchCanvas.create_line(*pos1, *pos2, fill=color, width=2.5))
 
         return cubeLineIds
 

@@ -4,29 +4,29 @@ from game.matrix.Vector import Vector
 class Entity(object):
     @staticmethod
     def generateEntityToWorldMatrix(axes):
-        cameraToWorldMatrix = Matrix.generateIdentity(4,4)
+        entityToWorldMatrix = Matrix.generateIdentity(4,4)
 
         # x-axis
-        cameraToWorldMatrix.values[0][0] = float(axes[1].x)
-        cameraToWorldMatrix.values[0][1] = float(axes[1].y)
-        cameraToWorldMatrix.values[0][2] = float(axes[1].z)
+        entityToWorldMatrix.values[0][0] = float(axes[1].x)
+        entityToWorldMatrix.values[0][1] = float(axes[1].y)
+        entityToWorldMatrix.values[0][2] = float(axes[1].z)
 
         # y-axis
-        cameraToWorldMatrix.values[1][0] = float(axes[2].x)
-        cameraToWorldMatrix.values[1][1] = float(axes[2].y)
-        cameraToWorldMatrix.values[1][2] = float(axes[2].z)
+        entityToWorldMatrix.values[1][0] = float(axes[2].x)
+        entityToWorldMatrix.values[1][1] = float(axes[2].y)
+        entityToWorldMatrix.values[1][2] = float(axes[2].z)
 
         # z-azis
-        cameraToWorldMatrix.values[2][0] = float(axes[3].x)
-        cameraToWorldMatrix.values[2][1] = float(axes[3].y)
-        cameraToWorldMatrix.values[2][2] = float(axes[3].z)
+        entityToWorldMatrix.values[2][0] = float(axes[3].x)
+        entityToWorldMatrix.values[2][1] = float(axes[3].y)
+        entityToWorldMatrix.values[2][2] = float(axes[3].z)
 
         # origin translation
-        cameraToWorldMatrix.values[3][0] = float(axes[0].x)
-        cameraToWorldMatrix.values[3][1] = float(axes[0].y)
-        cameraToWorldMatrix.values[3][2] = float(axes[0].z)
+        entityToWorldMatrix.values[3][0] = float(axes[0].x)
+        entityToWorldMatrix.values[3][1] = float(axes[0].y)
+        entityToWorldMatrix.values[3][2] = float(axes[0].z)
 
-        return cameraToWorldMatrix
+        return entityToWorldMatrix
 
     # Hitbox is a list of 4 vectors that define a cube. They are in object
     #   coordinates. To get them to world coordinates, multiply them by this
@@ -48,12 +48,12 @@ class Entity(object):
         self.regenEntityHitboxVertexVectors = True
         self.regenWorldHitboxVertexVectors = True
 
-    def getPosition(self):
-        transformationMatrixValues = self.worldToEntityMatrix.values
+        self.visible = True
 
-        x = transformationMatrixValues[3][0]
-        y = transformationMatrixValues[3][1]
-        z = transformationMatrixValues[3][2]
+    def getPosition(self):
+        x = self.entityToWorldMatrix.values[3][0]
+        y = self.entityToWorldMatrix.values[3][1]
+        z = self.entityToWorldMatrix.values[3][2]
 
         return Vector(x,y,z)
 
@@ -152,3 +152,6 @@ class Entity(object):
             collidesZ = True
 
         return (collidesX and collidesY and collidesZ)
+
+    def __repr__(self):
+        return "Entity with position " + str( self.getPosition() )
