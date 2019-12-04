@@ -29,16 +29,17 @@ class Tatch(tk.Tk):
         self.terrainSpread          = 1.8
 
         # User Gameplay Variables
-        self.targetFPS       = 30
-        self.movementSpeed   = 1.0
-        self.backgroundColor = "black"
-        self.terrainColor    = "white"
-        self.enemyColor      = "red"
-        self.projectileColor = "green"
-        self.enemySpawnDelay = 1500
-        self.enemyShootDelay = 500
+        self.targetFPS          = 30
+        self.movementSpeed      = 1.0
+        self.backgroundColor    = "black"
+        self.terrainColor       = "white"
+        self.enemyColor         = "red"
+        self.projectileColor    = "green"
+        self.enemySpawnDelay    = 1500
+        self.enemyShootDelay    = 500
+        self.playerShootTimeout = 50
 
-        self.initAmmoCount      = 0
+        self.initAmmoCount      = 20
         self.initHealthPoints   = 100
         self.initShieldPoints   = 25
         self.playerHitboxRadius = 5
@@ -63,11 +64,14 @@ class Tatch(tk.Tk):
         self.healthPoints  = self.initHealthPoints
         self.shieldPoints  = self.initShieldPoints
         self.updateTerrain = True
+        self.queueProjectileLaunch = False
 
         # Timing
-        self.timerDelay      = 1000 // self.targetFPS
-        self.enemySpawnTimer = 0
-        self.enemyShootTimer = 0
+        self.frameBufferTime  = 25
+        self.timerDelay       = 1000 // self.targetFPS
+        self.enemySpawnTimer  = 0
+        self.enemyShootTimer  = 0
+        self.playerShootTimer = 0
 
         # Drawing, terrain movement, entities
         self.terrainLineIdsList = []
@@ -92,7 +96,7 @@ class Tatch(tk.Tk):
 
         # Create the necessary game objects
         self.world = World( (self.width, self.height), self.fieldOfView, self.clippingPlanes, self.originVector, self.terrainDims, self.terrainScale, self.terrainOffsetVector, self.terrainSpread)
-        self.overlay = Overlay(self.width, self.height, self.tatchFrame.tatchCanvas, self.overlayMargin, self.overlayPauseSize, self.overlayPauseSizeSelectionModifier, self.initHealthPoints, self.initShieldPoints)
+        self.overlay = Overlay(self.width, self.height, self.tatchFrame.tatchCanvas, self.overlayMargin, self.overlayPauseSize, self.overlayPauseSizeSelectionModifier, self.initHealthPoints, self.initShieldPoints, self.initAmmoCount)
 
         # Bind keyPress/mouse events to their respective functions
         self.bind("<KeyPress>", self.keyDown)
@@ -231,7 +235,7 @@ class Tatch(tk.Tk):
         if (event.char == "\x1b"): # Escape
             self.pause()
         elif (event.char == " "): # Space
-            self.launchProjectile(self.playerPosition, Vector(0,0,-self.projectileSpeed), self.projectileHitboxRadius, self.playerProjectileDamage)
+            self.queueProjectileLaunch = True
         else:
             self.keysPressed.add(event.char)
 
@@ -267,8 +271,13 @@ class Tatch(tk.Tk):
 
     
     ######
-    # Game Loop
+    # Game Loop and Timing
     ######
+
+    def updateTimers(self, timeShift):
+        self.enemySpawnTimer  += timeShift
+        self.enemyShootTimer  += timeShift
+        self.playerShootTimer += timeShift
 
     def gameLoop(self):
         timeStartGameLoop = time.time()
@@ -297,6 +306,14 @@ class Tatch(tk.Tk):
                 self.shiftTerrain(self.xStep, self.zStep)
 
                 self.updateTerrain = True
+
+            # Launch projectile
+            if (self.queueProjectileLaunch and self.playerShootTimer >= self.playerShootTimeout and self.ammoCount > 0):
+                self.launchProjectile(self.playerPosition, Vector(0,0,-self.projectileSpeed), self.projectileHitboxRadius, self.playerProjectileDamage)
+                self.ammoCount -= 1
+                self.playerShootTimer = 0
+            elif self.queueProjectileLaunch:
+                self.queueProjectileLaunch = False
 
             for entity in self.entities:
                 entityVelocity = entity.velocityVector
@@ -337,20 +354,18 @@ class Tatch(tk.Tk):
         self.drawAll(drawTerrain = self.updateTerrain, drawHitboxes = True, drawOverlay = True)
         self.updateTerrain = False
 
-        # Update all timers
-        self.enemySpawnTimer += self.timerDelay
-        self.enemyShootTimer += self.timerDelay
-
         timeEndGameLoop = time.time()
 
-        print(timeEndGameLoop - timeStartGameLoop)
+        timeElapsedGameLoop = timeEndGameLoop-timeStartGameLoop
 
         # This is necessary just in case the game lags. If the game loop takes
         #   longer than the timer delay, then python will pin the CPU usage at
         #   100 unless a small buffer is added.
-        if ( (timeEndGameLoop-timeStartGameLoop) >= self.timerDelay):
-            self.after(timeEndGameLoop-timeStartGameLoop + 25, self.gameLoop)
+        if ( timeElapsedGameLoop >= self.timerDelay):
+            self.updateTimers(timeElapsedGameLoop + self.frameBufferTime)
+            self.after(timeElapsedGameLoop + self.frameBufferTime, self.gameLoop)
         else:
+            self.updateTimers(self.timerDelay)
             self.after(self.timerDelay, self.gameLoop)
 
 if __name__ == "__main__":
