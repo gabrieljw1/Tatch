@@ -13,191 +13,255 @@ import decimal, random, time
 import copy
 
 class Tatch(tk.Tk):
-    def __init__(self, width=1080, height=720): 
+    def __init__(self, width=1080, height=720):
+        # Tkinter initialization
         super().__init__()
 
-        # Set instance variables and create the visual frame
+        ### User customization
+
+        # User View Variables
+        self.fieldOfView            = 90
+        self.clippingPlanes         = (0.1, 100)
+        self.originVector           = Vector(0, -14, 0)
+        self.terrainDims            = (54, 29)
+        self.terrainScale           = 6.4
+        self.terrainOffsetVector    = Vector(0, 0, 12)
+        self.terrainSpread          = 1.8
+
+        # User Gameplay Variables
+        self.targetFPS       = 30
+        self.movementSpeed   = 1.0
+        self.backgroundColor = "black"
+        self.terrainColor    = "white"
+        self.enemyColor      = "red"
+        self.projectileColor = "green"
+        self.enemySpawnDelay = 1500
+
+        self.initAmmoCount      = 0
+        self.initHealthPoints   = 100
+        self.initShieldPoints   = 25
+        self.playerHitboxRadius = 5
+
+        self.projectileHitboxRadius = 1.25
+        self.projectileSpeed        = 4
+        self.playerProjectileDamage = 18
+
+        ### Game variables
+
+        # Set the instance variables
         self.width = width
         self.height = height
 
-        self.tatchFrame = TatchFrame(self, self.width, self.height)
-
-        # View Variables
-        fieldOfView = 90
-        self.clippingPlanes = (0.1, 100)
-        originVector = Vector(0, -14, 0)
-        terrainDims = (54, 29)
-        terrainScale = 6.4
-        terrainOffsetVector = Vector(0.0, 0.0, 12.0)
-        terrainSpread = 1.8
-
-
-        # Game update variables
-        self.paused = False
-        self.globalTimer = 0
-        self.timerDelay = 1000//30
-        self.keysPressed = set()
-        self.movementSpeed = 1.0
-        self.backgroundColor = "black"
-        self.terrainColor = "white"
-
-        self.geometry(str(self.width) + "x" + str(self.height) + "+0+0")
-        
-
-        # Create the Game objects
-        self.world = World( (self.width, self.height), fieldOfView, self.clippingPlanes, originVector, terrainDims, terrainScale, terrainOffsetVector, terrainSpread)
-        self.timerDelay = 1000//30
-        self.enemySpawnDelay = 1500
-        self.enemySpawnTimer = 0
-        self.score = 0
-
-        self.terrainLineIdsList = []
-
-        self.zStep, self.xStep = 0.0, 0.0
-        self.xShift, self.zShift = 0.0, 0.0
-
+        # Game state
+        self.paused        = False
+        self.keysPressed   = set()
+        self.score         = 0
+        self.ammoCount     = self.initAmmoCount
+        self.healthPoints  = self.initHealthPoints
+        self.shieldPoints  = self.initShieldPoints
         self.updateTerrain = True
 
-        self.tatchFrame.tatchCanvas.config(background=self.backgroundColor)
+        # Timing
+        self.timerDelay      = 1000 // self.targetFPS
+        self.globalTimer     = 0
+        self.enemySpawnTimer = 0
 
+        # Drawing, terrain movement, entities
+        self.terrainLineIdsList = []
+        self.hitboxLineIdsList = []
+        self.zStep, self.xStep = 0.0, 0.0
+        self.xShift, self.zShift = 0.0, 0.0
+        self.entities = []
 
-        # Player variables
-        self.ammoCount = 0
-        self.healthPoints = 100
-        self.shieldPoints = 25
-
-
-        # Overlay specifications
-        self.overlayMargin = 10 # Margin from borders of screen to not draw in
-        self.overlayPauseSize = min( self.width // 20, self.height // 20 ) # Side length of pause button (square)
-        self.overlayPauseSizeSelectionModifier = 1.4 # How much to expand pause button upon selection
-
-        self.overlay = Overlay(self.width, self.height, self.tatchFrame.tatchCanvas, self.overlayMargin, self.overlayPauseSize, self.overlayPauseSizeSelectionModifier)
-
+        # Overlay specifications and state
+        self.overlayMargin = 10
+        self.overlayPauseSize = min( self.width // 20, self.height // 20 )
+        self.overlayPauseSizeSelectionModifier = 1.4
         self.overlayPauseSelected = False
 
+        ### Operations
 
-        # Bind key event methods
+        # Create the frame, set window pos, set background color, set resizeable
+        self.tatchFrame = TatchFrame(self, self.width, self.height)
+        self.geometry(str(self.width) + "x" + str(self.height) + "+0+0")
+        self.tatchFrame.tatchCanvas.config(background=self.backgroundColor)
+        self.resizable(False, False)
+
+        # Create the necessary game objects
+        self.world = World( (self.width, self.height), self.fieldOfView, self.clippingPlanes, self.originVector, self.terrainDims, self.terrainScale, self.terrainOffsetVector, self.terrainSpread)
+        self.overlay = Overlay(self.width, self.height, self.tatchFrame.tatchCanvas, self.overlayMargin, self.overlayPauseSize, self.overlayPauseSizeSelectionModifier, self.initHealthPoints, self.initShieldPoints)
+
+        # Bind keyPress/mouse events to their respective functions
         self.bind("<KeyPress>", self.keyDown)
         self.bind("<KeyRelease>", self.keyUp)
         self.bind("<Motion>", self.mouseMoved)
         self.bind("<Button>", self.mousePressed)
 
-        self.resizable(False, False)
+        # Create the player entity and spawn the first entity
+        self.playerPosition = Vector(self.originVector.x, self.originVector.y/4, self.originVector.z)
+        self.playerEntity = self.generateEntity(self.playerPosition, self.playerHitboxRadius)
 
-
-        # Player shit
-        self.playerEntity = self.generateEntity(Vector(originVector.x,originVector.y/4,originVector.z), 5)
-
-
-        # Entities
-        self.entities = []
-
-        self.spawnEnemy(Vector(0, 0, -25))
-        self.cubeLineIdsList = []
+    
+    
+    ######
+    # Entity Generation (Entity, Projectile, Enemy)
+    ######
 
     # Generate an entity at a given position and hitbox radius.
-    def generateEntity(self, positionVector, hitboxRadius):
-        # Get the entity axes (this format of position/xAxis/yAxis/zAxis) is
-        #   constant throughout this program. The xAxis, yAxis, zAxis defines
-        #   rotation, reflection, etc. The position defines the translation.
+    def generateEntity(self,positionVector, hitboxRadius):
+        # Generate the entity-to-world transformation matrix
         entityAxes = [positionVector, self.world.axes[1], self.world.axes[2], self.world.axes[3]]
-
-        # Generate the Entity-To-World transformation matrix from the axes
         entityMatrix = Entity.generateEntityToWorldMatrix(entityAxes)
 
-        # Generate the 'low' and 'high' vectors. A 'lower' vector is defined as
-        #   the vector whose sum of its components (x,y,z) is the lowest.
-        hitboxVectorLow = Vector(-hitboxRadius, -hitboxRadius, -hitboxRadius)
-        hitboxVectorHigh = Vector(+hitboxRadius, +hitboxRadius, +hitboxRadius)
+        # Define the hitbox vectors in $Object$ coordinates
+        hitboxVectors = [Vector(-hitboxRadius, -hitboxRadius, -hitboxRadius),\
+                         Vector(+hitboxRadius, +hitboxRadius, +hitboxRadius)]
 
-        return Entity(entityMatrix, [hitboxVectorLow, hitboxVectorHigh])
+        return Entity(entityMatrix, hitboxVectors)
 
-    # Launch a projectile from the origin going forward.
-    def launchProjectile(self, hitboxRadius, velocityVector, damage, positionVector = Vector(0,0,0), launchedByEnemy = False):
-        # Start at the origin and get the axes
-        entityAxes = [positionVector, self.world.axes[1], self.world.axes[2], self.world.axes[3]]
-        
-        # Generate the Entity-To-World transformation matrix from the axes
-        entityMatrix = Entity.generateEntityToWorldMatrix(entityAxes)
+    # Spawn an enemy at a given position and with given attributes
+    def spawnEnemy(self, positionVector, hitboxRadius = 5, health = 100, projectileStrength = 10):
+        # Generate the entity-to-world transformation matrix
+        enemyAxes = [positionVector, self.world.axes[1], self.world.axes[2], self.world.axes[3]]
+        enemyMatrix = Entity.generateEntityToWorldMatrix(enemyAxes)
 
-        # Generate the 'low' and 'high' vectors. A 'lower' vector is defined as
-        #   the vector whose sum of its components (x,y,z) is the lowest.
-        hitboxVectorLow = Vector(-hitboxRadius, -hitboxRadius, -hitboxRadius)
-        hitboxVectorHigh = Vector(+hitboxRadius, +hitboxRadius, +hitboxRadius)
+        # Define the hitbox vectors in $Object$ coordinates
+        hitboxVectors = [Vector(-hitboxRadius, -hitboxRadius, -hitboxRadius),\
+                         Vector(+hitboxRadius, +hitboxRadius, +hitboxRadius)]
 
-        # Create the projectile and add it to the list.
-        proj = Projectile(entityMatrix, [hitboxVectorLow, hitboxVectorHigh], velocityVector, damage, launchedByEnemy)
+        self.entities.append( Enemy(enemyMatrix, hitboxVectors, health, projectileStrength) )
 
-        self.entities.append(proj)
+    # Launch a projectile
+    def launchProjectile(self, positionVector, velocityVector, hitboxRadius, damage, launchedByEnemy=False):
+        # Generate the projectile-to-world transformation matrix
+        projectileAxes = [positionVector, self.world.axes[1], self.world.axes[2], self.world.axes[3]]
+        projectileMatrix = Entity.generateEntityToWorldMatrix(projectileAxes)
 
+        # Define the hitbox vectors in $Object$ coordinates
+        hitboxVectors = [Vector(-hitboxRadius, -hitboxRadius, -hitboxRadius),\
+                         Vector(+hitboxRadius, +hitboxRadius, +hitboxRadius)]
+
+        self.entities.append( Projectile(projectileMatrix, hitboxVectors, velocityVector, damage, launchedByEnemy) )
+
+    # Launch a projectile from another Entity towards the player
     def launchProjectileFromEnemy(self, enemyEntity, hitboxRadius, velocityMagnitude, damage):
-        enemyPosition = enemyEntity.getPosition()
+        # Get the velocity vector required to hit the player from the entity's
+        #   position.
+        velocityVector = Vector.getVelocityFromPointToPoint(enemyEntity.getPosition(), self.playerPosition, velocityMagnitude)
 
-        originVector = self.world.axes[0]
+        self.launchProjectile(enemyEntity.getPosition(), velocityVector, hitboxRadius, damage, True)
 
-        velocityVector = Vector.getVelocityFromPointToPoint(enemyPosition, Vector(originVector.x,originVector.y/4,originVector.z), velocityMagnitude)
 
-        self.launchProjectile(hitboxRadius, velocityVector, damage, enemyPosition, True)
 
-    def spawnEnemy(self, positionVector, hitboxRadius = 5, health=100, projectileStrength = 10):
-        entityAxes = [positionVector, self.world.axes[1], self.world.axes[2], self.world.axes[3]]
+    ######
+    # Terrain Movement
+    ######
 
-        # Generate the Entity-To-World transformation matrix from the axes
-        entityMatrix = Entity.generateEntityToWorldMatrix(entityAxes)
-
-        # Generate the 'low' and 'high' vectors. A 'lower' vector is defined as
-        #   the vector whose sum of its components (x,y,z) is the lowest.
-        hitboxVectorLow = Vector(-hitboxRadius, -hitboxRadius, -hitboxRadius)
-        hitboxVectorHigh = Vector(+hitboxRadius, +hitboxRadius, +hitboxRadius)
-
-        self.entities.append(Enemy(entityMatrix, [hitboxVectorLow, hitboxVectorHigh], health, projectileStrength))
-
-    # Draw the terrain from the terrain cache
-    def drawTerrain(self):
-        terrainVectors = self.world.terrainCache
-
-        self.tatchFrame.clearTerrainLines(self.terrainLineIdsList)
-        self.terrainLineIdsList = self.tatchFrame.drawTerrainFromVectors(terrainVectors, self.terrainColor)
-
-    # Shift the terrain over the X-Z (horizontal) plane.
+    # Shift the terrain over the X-Z (horizontal) plane and save it in the cache
     def shiftTerrain(self, dx, dz):
         self.xShift += dx
         self.zShift += dz
 
-        self.world.setTerrainCache(self.world.terrainOffsetVector,\
-                                    self.xShift,\
-                                    self.zShift)
+        self.world.setTerrainCache(self.world.terrainOffsetVector, self.xShift, self.zShift)
 
-    # Draw all entity hitboxes
-    def drawEntities(self):
-        cubeIds = []
 
-        # Clear all cubes that are currently on the canvas
-        self.tatchFrame.clearTerrainLines(self.cubeLineIdsList)
+    
+    ######
+    # View Drawing
+    ######
+
+    # Clear the terrain lines then redraw from the terrain cache in the world
+    def drawTerrain(self):
+        self.tatchFrame.clearTerrainLines(self.terrainLineIdsList)
+        self.terrainLineIdsList = self.tatchFrame.drawTerrainFromVectors(self.world.terrainCache, self.terrainColor)
+
+    def drawEntityHitboxes(self):
+        # Clear all hitboxes on the canvas
+        self.tatchFrame.clearTerrainLines(self.hitboxLineIdsList)
+
+        hitboxLineIdsList = []
 
         for entity in self.entities:
-            if (entity.visible):
-                vertices = self.world.generateRaster(entity.getWorldHitboxVertexVectors())
-
-                # These colors are included for ease of use when looking at hitboxes
+            if entity.visible:
                 if ( isinstance(entity, Enemy) ):
-                    color = "red"
+                    color = self.enemyColor
                 else:
-                    color = "green"
+                    color = self.projectileColor
 
-                # Store the TKinter line IDs for clearing later
-                cubeIds.extend(self.tatchFrame.drawCube(vertices, color))
+                rasterPoints = self.world.generateRaster( entity.getWorldHitboxVertexVectors() )
 
-        self.cubeLineIdsList = cubeIds
+                hitboxLineIdsList.extend(self.tatchFrame.drawCube(rasterPoints, color))
+
+        self.hitboxLineIdsList = hitboxLineIdsList
 
     # Draw all objects
-    def drawAll(self, drawTerrain):
-        if (drawTerrain):
+    def drawAll(self, drawTerrain = False, drawHitboxes = False, drawOverlay = False):
+        if drawTerrain:
             self.drawTerrain()
         
-        self.drawEntities()
-        self.overlay.redrawOverlay(self.overlayPauseSelected, self.healthPoints, self.shieldPoints, self.ammoCount, self.score, self.paused)
+        if drawHitboxes:
+            self.drawEntityHitboxes()
+
+        if drawOverlay:
+            self.overlay.redrawOverlay(self.overlayPauseSelected, self.healthPoints, self.shieldPoints, self.ammoCount, self.score, self.paused)        
+
+
+
+    ######
+    # User Interaction
+    ######
+
+    def positionInsidePauseButton(self, x, y):
+        return (self.width - self.overlayMargin - self.overlayPauseSize <= x \
+                and x <= self.width - self.overlayMargin\
+                and self.overlayMargin <= y\
+                and y <= self.overlayMargin + self.overlayPauseSize)
+
+    def mouseMoved(self, event):
+        self.overlayPauseSelected = self.positionInsidePauseButton(event.x, event.y)
+
+    def mousePressed(self, event):
+        if self.overlayPauseSelected:
+            self.pause()
+
+    def keyDown(self, event):
+        if (event.char == "\x1b"): # Escape
+            self.pause()
+        elif (event.char == " "): # Space
+            self.launchProjectile(self.playerPosition, Vector(0,0,-self.projectileSpeed), self.projectileHitboxRadius, self.playerProjectileDamage)
+        else:
+            self.keysPressed.add(event.char)
+
+    def keyUp(self, event):
+        if (event.char in self.keysPressed):
+            self.keysPressed.remove(event.char)
+    
+
+
+    ######
+    # Game State
+    ######
+
+    def pause(self):
+        self.paused = not self.paused
+
+    def playerHit(self, power):
+        if (self.shieldPoints > 0):
+            self.shieldPoints -= power
+
+            if (self.shieldPoints < 0):
+                self.shieldPoints = 0
+        else:
+            self.healthPoints -= power
+
+            if (self.healthPoints < 0):
+                self.healthPoints = 0
+
+
+    
+    ######
+    # Game Loop
+    ######
 
     def gameLoop(self):
         start = time.time()
@@ -272,7 +336,7 @@ class Tatch(tk.Tk):
                 self.updateTerrain = True
 
         # Draw all objects 
-        self.drawAll(self.updateTerrain)
+        self.drawAll(drawTerrain = self.updateTerrain, drawHitboxes = True, drawOverlay = True)
         self.updateTerrain = False
 
         end = time.time()
@@ -288,53 +352,6 @@ class Tatch(tk.Tk):
         else:
             self.after(self.timerDelay, self.gameLoop)
 
-    def playerHit(self, power):
-        if (self.shieldPoints > 0):
-            self.shieldPoints -= power
-
-            if (self.shieldPoints < 0):
-                self.shieldPoints = 0
-        else:
-            self.healthPoints -= power
-
-            if (self.healthPoints < 0):
-                self.healthPoints = 0
-
-    # Whenever the mouse is moved, check to see if it is over a clickable button
-    def mouseMoved(self, event):
-        if (self.width - self.overlayMargin - self.overlayPauseSize <= event.x \
-                and event.x <= self.width - self.overlayMargin\
-                and self.overlayMargin <= event.y\
-                and event.y <= self.overlayMargin + self.overlayPauseSize):
-            self.overlayPauseSelected = True
-        else:
-            self.overlayPauseSelected = False
-    
-    # If the mouse is pressed and it is over an object, call that object's
-    #   linked method.
-    def mousePressed(self, event):
-        if self.overlayPauseSelected:
-            self.pause()
-
-    # If a key is pressed, do a certain action. Used for WASD/QE, projectile
-    #   launching, pause menu with ESC
-    def keyDown(self, event):
-        # Escape
-        if (event.char == "\x1b"):
-            self.pause()
-        elif (event.char == " "): # Launch
-            self.launchProjectile(1.25, Vector(0, 0, -4), 18)
-        else:
-            self.keysPressed.add(event.char)
-
-    # Stop moving if WASD is released
-    def keyUp(self, event):
-        if (event.char in self.keysPressed):
-            self.keysPressed.remove(event.char)
-
-    def pause(self):
-        self.paused = not self.paused
-
 if __name__ == "__main__":
     tatch = Tatch()
     tatch.after(0, tatch.gameLoop)
@@ -345,8 +362,4 @@ if __name__ == "__main__":
 #   - Native full screen
 #   - Aspect ratio fix
 #   - Add more to HUD
-#   - Documentation and refactor
 #   - Delay between bullet firing so no lag
-
-# To MVP
-#   - Health and Shield are implemented, need a way to decrement/increment

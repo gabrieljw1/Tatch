@@ -1,5 +1,5 @@
 class Overlay(object):
-    def __init__(self, width, height, tatchCanvas, margin, pauseSize, pauseSizeSelectionModifier):
+    def __init__(self, width, height, tatchCanvas, margin, pauseSize, pauseSizeSelectionModifier, initHealthPoints, initShieldPoints):
         self.tatchCanvas = tatchCanvas
         self.width = width
         self.height = height
@@ -7,6 +7,9 @@ class Overlay(object):
         self.margin = margin
         self.pauseSize = pauseSize
         self.pauseSizeSelectionModifier = pauseSizeSelectionModifier
+
+        self.initHealthPoints = initHealthPoints
+        self.initShieldPoints = initShieldPoints
 
         self.tkinterObjectIds = []
 
@@ -42,13 +45,13 @@ class Overlay(object):
                                                         self.height - 2*self.margin - 2*self.pauseSize,\
                                                         fill = "gray", outline = "black")
 
-        healthBarId = self.tatchCanvas.create_rectangle(self.width - self.margin - (100 - healthPoints)/100*(self.pauseSize*6),\
+        healthBarId = self.tatchCanvas.create_rectangle(self.width - self.margin - (self.initHealthPoints - healthPoints)/self.initHealthPoints*(self.pauseSize*6),\
                                                         self.height - self.margin,\
                                                         self.width - self.margin - self.pauseSize*6,\
                                                         self.height - self.margin - self.pauseSize,\
                                                         fill = "red", outline = "white")
 
-        shieldBarId = self.tatchCanvas.create_rectangle(self.width - self.margin - (25 - shieldPoints)/100*(self.pauseSize*6),\
+        shieldBarId = self.tatchCanvas.create_rectangle(self.width - self.margin - (self.initShieldPoints - shieldPoints)/self.initShieldPoints*(self.pauseSize*6),\
                                                         self.height - 2*self.margin - self.pauseSize,\
                                                         self.width - self.margin - self.pauseSize*6,\
                                                         self.height - 2*self.margin - 2*self.pauseSize,\
@@ -67,7 +70,7 @@ class Overlay(object):
                                                                                 self.height - self.margin,\
                                                                                 fill = "white"))
 
-        self.tkinterObjectIds.append(self.tatchCanvas.create_text(self.width//2, 20, text=f"Score: {score}", fill="white"))
+        self.tkinterObjectIds.append(self.tatchCanvas.create_text(self.width//2, 30, text=f"Score: {score}", fill="white"))
 
     def redrawOverlay(self, pauseButtonSelected, healthPoints, shieldPoints, ammoCount, score, paused):
         self.clearOverlay()
