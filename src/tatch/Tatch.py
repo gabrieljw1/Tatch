@@ -36,6 +36,7 @@ class Tatch(tk.Tk):
         self.enemyColor      = "red"
         self.projectileColor = "green"
         self.enemySpawnDelay = 1500
+        self.enemyShootDelay = 500
 
         self.initAmmoCount      = 0
         self.initHealthPoints   = 100
@@ -45,6 +46,7 @@ class Tatch(tk.Tk):
         self.projectileHitboxRadius = 1.25
         self.projectileSpeed        = 4
         self.playerProjectileDamage = 18
+        self.enemyProjectileDamage  = 15
 
         ### Game variables
 
@@ -54,6 +56,7 @@ class Tatch(tk.Tk):
 
         # Game state
         self.paused        = False
+        self.gameIsOver    = False
         self.keysPressed   = set()
         self.score         = 0
         self.ammoCount     = self.initAmmoCount
@@ -63,8 +66,8 @@ class Tatch(tk.Tk):
 
         # Timing
         self.timerDelay      = 1000 // self.targetFPS
-        self.globalTimer     = 0
         self.enemySpawnTimer = 0
+        self.enemyShootTimer = 0
 
         # Drawing, terrain movement, entities
         self.terrainLineIdsList = []
@@ -257,6 +260,10 @@ class Tatch(tk.Tk):
             if (self.healthPoints < 0):
                 self.healthPoints = 0
 
+    def gameOver(self):
+        self.paused = False
+        self.gameIsOver = True
+
 
     
     ######
@@ -264,91 +271,85 @@ class Tatch(tk.Tk):
     ######
 
     def gameLoop(self):
-        start = time.time()
+        timeStartGameLoop = time.time()
 
-        # Process keys:
-        if ("w" in self.keysPressed):
-            self.zStep = self.movementSpeed
-        elif ("s"  in self.keysPressed):
+        if   "w" in self.keysPressed:
+            self.zStep = +self.movementSpeed
+        elif "s" in self.keysPressed:
             self.zStep = -self.movementSpeed
         else:
             self.zStep = 0
 
-        if ("a" in self.keysPressed):
-            self.xStep = self.movementSpeed
-        elif ("d" in self.keysPressed):
+        if   "a" in self.keysPressed:
+            self.xStep = +self.movementSpeed
+        elif "d" in self.keysPressed:
             self.xStep = -self.movementSpeed
         else:
             self.xStep = 0
 
-        if (not self.paused):
-            # Move the first entity if WASD is pressed
+
+        if not self.paused:
+            (nearClip, farClip) = self.clippingPlanes
+            enemiesExist = False
+
+            # Move terrain
             if (self.xStep != 0 or self.zStep != 0):
                 self.shiftTerrain(self.xStep, self.zStep)
 
-                for entity in self.entities:
-                    entity.translate(-self.xStep, 0, self.zStep)
+                self.updateTerrain = True
 
-                self.updateTerrain = True 
-
-            # Move each entity by their velocity and destroy if they leave the 
-            #   viewing area.
             for entity in self.entities:
-                if (entity.velocityVector != Vector(0,0,0)):
-                    entity.translate(entity.velocityVector.x, entity.velocityVector.y, entity.velocityVector.z)
+                entityVelocity = entity.velocityVector
+                entity.translate(entityVelocity.x - self.xStep, entityVelocity.y, entityVelocity.z + self.zStep)
 
-                (near, far) = self.clippingPlanes
-
-                if (isinstance(entity, Projectile) and abs(entity.entityToWorldMatrix.values[3][2]) > 2*far):
+                if ( abs(entity.entityToWorldMatrix.values[3][2]) > 2 * farClip ): # Despawn condition
                     self.entities.remove(entity)
-                elif (abs(entity.entityToWorldMatrix.values[3][2]) > far):
+                elif ( abs(entity.entityToWorldMatrix.values[3][2] > farClip) ): # Not visible condition
                     entity.visible = False
                 elif not entity.visible:
-                        entity.visible = True
+                    entity.visible = True
 
+                # Shoot on time if an enemy. If projectile, check collisions
                 if isinstance(entity, Enemy):
-                    if self.enemySpawnTimer > self.enemySpawnDelay:
-                        self.launchProjectileFromEnemy(entity, 1.25, 5, 15)
-                        self.enemySpawnTimer = 0
-
-            # Check collisions between projectiles and enemies
-            for entity in self.entities:
-                if (isinstance(entity, Projectile)):
+                    enemiesExist = True
+                    if self.enemyShootTimer > self.enemyShootDelay:
+                        self.launchProjectileFromEnemy(entity, self.projectileHitboxRadius, self.projectileSpeed, self.enemyProjectileDamage)
+                        self.enemyShootTimer = 0
+                else:
                     for otherEntity in self.entities:
-                        if (entity != otherEntity):
-                            if (not entity.spawnedByEnemy):
-                                if entity.collidesWith(otherEntity) or otherEntity.collidesWith(entity):
-                                    self.entities.remove(otherEntity)
-                                    self.entities.remove(entity)
-                                    self.updateTerrain = True
-                            else:
+                        if (entity != otherEntity and not isinstance(otherEntity, Projectile)):
+                            if entity.spawnedByEnemy:
                                 if entity.collidesWith(self.playerEntity) or self.playerEntity.collidesWith(entity):
                                     self.playerHit(entity.strength)
-                                    self.updateTerrain = True
 
                                     if entity in self.entities:
                                         self.entities.remove(entity)
+                            else:
+                                if entity.collidesWith(otherEntity) or otherEntity.collidesWith(entity):
+                                    self.entities.remove(otherEntity)
+                                    self.entities.remove(entity)
 
-
-            # If there are no enemies
-            if (len(self.entities) == 0) or (len(self.entities) == 1 and isinstance(self.entities[0], Projectile)):
+            # If there are no enemies, spawn one
+            if not enemiesExist:
                 self.spawnEnemy(Vector(random.randint(-15,15), 0, random.randint(-70, -45)))
-                self.updateTerrain = True
 
-        # Draw all objects 
+        # Draw with new information
         self.drawAll(drawTerrain = self.updateTerrain, drawHitboxes = True, drawOverlay = True)
         self.updateTerrain = False
 
-        end = time.time()
-
         # Update all timers
         self.enemySpawnTimer += self.timerDelay
+        self.enemyShootTimer += self.timerDelay
+
+        timeEndGameLoop = time.time()
+
+        print(timeEndGameLoop - timeStartGameLoop)
 
         # This is necessary just in case the game lags. If the game loop takes
         #   longer than the timer delay, then python will pin the CPU usage at
         #   100 unless a small buffer is added.
-        if ( (end-start) >= self.timerDelay):
-            self.after(end-start + 25, self.gameLoop)
+        if ( (timeEndGameLoop-timeStartGameLoop) >= self.timerDelay):
+            self.after(timeEndGameLoop-timeStartGameLoop + 25, self.gameLoop)
         else:
             self.after(self.timerDelay, self.gameLoop)
 
