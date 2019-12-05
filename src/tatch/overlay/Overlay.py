@@ -18,7 +18,7 @@ class Overlay(object):
         for tkinterObjectId in self.tkinterObjectIds:
             self.tatchCanvas.delete(tkinterObjectId)
 
-    def drawOverlay(self, pauseButtonSelected, healthPoints, shieldPoints, ammoCount, score, paused):
+    def drawOverlay(self, pauseButtonSelected, healthPoints, shieldPoints, ammoCount, score, paused, gameIsOver):
         # Pause Button
         if (not pauseButtonSelected):
             self.tkinterObjectIds.append(self.tatchCanvas.create_rectangle(self.width - self.margin,\
@@ -70,23 +70,45 @@ class Overlay(object):
                                                         self.height - 3*self.margin - 2.5*self.pauseSize,\
                                                         fill = "yellow", outline = "white")
 
-        self.tkinterObjectIds.append( healthBarBackgroundId )
-        self.tkinterObjectIds.append( shieldBarBackgroundId )
-        self.tkinterObjectIds.append(   ammoBarBackgroundId )
-        self.tkinterObjectIds.append( healthBarId )
-        self.tkinterObjectIds.append( shieldBarId )
-        self.tkinterObjectIds.append(   ammoBarId )
+        scoreBackgroundId = self.tatchCanvas.create_rectangle(self.margin,\
+                                                            self.height - self.margin,\
+                                                            self.margin + 6*self.pauseSize,\
+                                                            self.height - self.margin - 3*self.pauseSize,\
+                                                            fill = "black", outline = "black")
+
+        scoreTextId = self.tatchCanvas.create_text(self.margin + 3*self.pauseSize,\
+                                                                    self.height - self.margin - (3/2)*self.pauseSize,\
+                                                                    text=f"{score}", fill="white",\
+                                                                    font=("Comic Sans", 30))
 
         # Pause Menu
-        if (paused):
-            self.tkinterObjectIds.append(self.tatchCanvas.create_rectangle(self.margin,\
-                                                                                self.margin,\
-                                                                                self.width - self.margin,\
-                                                                                self.height - self.margin,\
-                                                                                fill = "white"))
+        if (paused or gameIsOver):
+            menuId = self.tatchCanvas.create_rectangle(3 * self.width / 8,\
+                                                        3 * self.height / 8,\
+                                                        5 * self.width / 8,\
+                                                        5 * self.height / 8,\
+                                                        fill = "white")
 
-        self.tkinterObjectIds.append(self.tatchCanvas.create_text(self.width//2, 30, text=f"Score: {score}", fill="white"))
+            self.tkinterObjectIds.append( menuId )
 
-    def redrawOverlay(self, pauseButtonSelected, healthPoints, shieldPoints, ammoCount, score, paused):
+            text = "Paused" if paused else "Game Over"
+
+            menuTextId = self.tatchCanvas.create_text(self.width//2,\
+                                                    self.height//2,\
+                                                    text = text, fill="black",\
+                                                    font=("Comic Sans", 30))
+
+            self.tkinterObjectIds.append( menuTextId )
+
+        self.tkinterObjectIds.append( healthBarBackgroundId )
+        self.tkinterObjectIds.append( shieldBarBackgroundId )
+        self.tkinterObjectIds.append( ammoBarBackgroundId )
+        self.tkinterObjectIds.append( healthBarId )
+        self.tkinterObjectIds.append( shieldBarId )
+        self.tkinterObjectIds.append( ammoBarId )
+        self.tkinterObjectIds.append( scoreBackgroundId )
+        self.tkinterObjectIds.append( scoreTextId )
+
+    def redrawOverlay(self, pauseButtonSelected, healthPoints, shieldPoints, ammoCount, score, paused, gameIsOver):
         self.clearOverlay()
-        self.drawOverlay(pauseButtonSelected, healthPoints, shieldPoints, ammoCount, score, paused)
+        self.drawOverlay(pauseButtonSelected, healthPoints, shieldPoints, ammoCount, score, paused, gameIsOver)

@@ -12,10 +12,21 @@ from overlay.Overlay import Overlay
 import decimal, random, time
 import copy
 
+try:
+    import winsound
+except ImportError:
+    print("winsound not available. Discarding music.")
+    winsoundAvailable = False
+else:
+    winsoundAvailable = True
+
 class Tatch(tk.Tk):
     def __init__(self, width=1080, height=720):
         # Tkinter initialization
         super().__init__()
+
+        if winsoundAvailable:
+            winsound.PlaySound("tatchwave.wav", winsound.SND_LOOP  + winsound.SND_ASYNC | winsound.SND_ALIAS )
 
         ### User customization
 
@@ -35,19 +46,27 @@ class Tatch(tk.Tk):
         self.terrainColor       = "white"
         self.enemyColor         = "red"
         self.projectileColor    = "green"
-        self.enemySpawnDelay    = 1500
-        self.enemyShootDelay    = 500
         self.playerShootTimeout = 50
+        self.enemySpawnDelay    = 450
+        self.enemyShootDelay    = 400
+        self.maxEntityCount     = 10
 
-        self.initAmmoCount      = 20
+        self.ammoRegenDelay     = 450
+        self.shieldRegenDelay   = 1250
+        self.ammoRegenAmount    = 1
+        self.shieldRegenAmount  = 5
+
+        self.initAmmoCount      = 5
         self.initHealthPoints   = 100
-        self.initShieldPoints   = 25
+        self.initShieldPoints   = 60
         self.playerHitboxRadius = 5
 
-        self.projectileHitboxRadius = 1.25
+        self.projectileHitboxRadius = 0.75
         self.projectileSpeed        = 4
-        self.playerProjectileDamage = 18
-        self.enemyProjectileDamage  = 15
+        self.playerProjectileDamage = 20
+        self.enemyProjectileDamage  = 14
+
+        self.scoreIncrement = 100
 
         ### Game variables
 
@@ -69,9 +88,11 @@ class Tatch(tk.Tk):
         # Timing
         self.frameBufferTime  = 25
         self.timerDelay       = 1000 // self.targetFPS
-        self.enemySpawnTimer  = 0
+        self.enemySpawnTimer  = self.enemySpawnDelay # Spawn instantly
         self.enemyShootTimer  = 0
         self.playerShootTimer = 0
+        self.ammoRegenTimer   = 0
+        self.shieldRegenTimer = 0
 
         # Drawing, terrain movement, entities
         self.terrainLineIdsList = []
@@ -103,6 +124,9 @@ class Tatch(tk.Tk):
         self.bind("<KeyRelease>", self.keyUp)
         self.bind("<Motion>", self.mouseMoved)
         self.bind("<Button>", self.mousePressed)
+
+        # Bind window events
+        self.protocol("WM_DELETE_WINDOW", self.closeWindow)
 
         # Create the player entity and spawn the first entity
         self.playerPosition = Vector(self.originVector.x, self.originVector.y/4, self.originVector.z)
@@ -210,7 +234,7 @@ class Tatch(tk.Tk):
             self.drawEntityHitboxes()
 
         if drawOverlay:
-            self.overlay.redrawOverlay(self.overlayPauseSelected, self.healthPoints, self.shieldPoints, self.ammoCount, self.score, self.paused)        
+            self.overlay.redrawOverlay(self.overlayPauseSelected, self.healthPoints, self.shieldPoints, self.ammoCount, self.score, self.paused, self.gameIsOver)        
 
 
 
@@ -228,16 +252,20 @@ class Tatch(tk.Tk):
         self.overlayPauseSelected = self.positionInsidePauseButton(event.x, event.y)
 
     def mousePressed(self, event):
-        if self.overlayPauseSelected:
+        if self.overlayPauseSelected and not self.gameIsOver:
             self.pause()
 
     def keyDown(self, event):
-        if (event.char == "\x1b"): # Escape
-            self.pause()
-        elif (event.char == " "): # Space
-            self.queueProjectileLaunch = True
+        if (not self.gameIsOver):
+            if (event.char == "\x1b"): # Escape
+                self.pause()
+            elif (event.char == " "): # Space
+                self.queueProjectileLaunch = True
+            else:
+                self.keysPressed.add(event.char)
         else:
-            self.keysPressed.add(event.char)
+            if (event.char in ["\x1b", " "]):
+                self.restartGame()
 
     def keyUp(self, event):
         if (event.char in self.keysPressed):
@@ -264,9 +292,38 @@ class Tatch(tk.Tk):
             if (self.healthPoints < 0):
                 self.healthPoints = 0
 
+        if (self.healthPoints <= 0):
+            self.gameIsOver = True
+
     def gameOver(self):
         self.paused = False
         self.gameIsOver = True
+
+    def restartGame(self):
+        self.tatchFrame.clearTerrainLines(self.terrainLineIdsList)
+        self.tatchFrame.clearTerrainLines(self.hitboxLineIdsList)
+
+        self.keysPressed   = set()
+        self.score         = 0
+        self.ammoCount     = self.initAmmoCount
+        self.healthPoints  = self.initHealthPoints
+        self.shieldPoints  = self.initShieldPoints
+        self.updateTerrain = True
+        self.queueProjectileLaunch = False
+
+        self.terrainLineIdsList = []
+        self.hitboxLineIdsList = []
+        self.zStep, self.xStep = 0.0, 0.0
+        self.xShift, self.zShift = 0.0, 0.0
+        self.entities = []
+
+        self.paused     = False
+        self.gameIsOver = False
+
+    def closeWindow(self):
+        self.gameIsOver = True
+        winsound.PlaySound(None, winsound.SND_ASYNC)
+        self.destroy()
 
 
     
@@ -278,6 +335,8 @@ class Tatch(tk.Tk):
         self.enemySpawnTimer  += timeShift
         self.enemyShootTimer  += timeShift
         self.playerShootTimer += timeShift
+        self.ammoRegenTimer   += timeShift
+        self.shieldRegenTimer += timeShift
 
     def gameLoop(self):
         timeStartGameLoop = time.time()
@@ -297,9 +356,8 @@ class Tatch(tk.Tk):
             self.xStep = 0
 
 
-        if not self.paused:
+        if not self.paused and not self.gameIsOver:
             (nearClip, farClip) = self.clippingPlanes
-            enemiesExist = False
 
             # Move terrain
             if (self.xStep != 0 or self.zStep != 0):
@@ -315,6 +373,25 @@ class Tatch(tk.Tk):
             elif self.queueProjectileLaunch:
                 self.queueProjectileLaunch = False
 
+            # Spawn another enemy if the timer is done
+            if (self.enemySpawnTimer > (len(self.entities)**0.4) * self.enemySpawnDelay and len(self.entities) <= self.maxEntityCount):
+                self.spawnEnemy(Vector(random.randint(-30,30), 0, random.randint(-80, -35)))
+                self.enemySpawnTimer = 0
+
+            # Ammo regen
+            if (self.ammoRegenTimer > self.ammoRegenDelay):
+                self.ammoCount += self.ammoRegenAmount
+                self.ammoRegenTimer = 0
+
+                self.ammoCount = min(self.initAmmoCount, self.ammoCount)
+
+            # Shield regen
+            if (self.shieldRegenTimer > self.shieldRegenDelay and self.shieldPoints > 0):
+                self.shieldPoints += self.shieldRegenAmount
+                self.shieldRegenTimer = 0
+
+                self.shieldPoints = min(self.initShieldPoints, self.shieldPoints)
+
             for entity in self.entities:
                 entityVelocity = entity.velocityVector
                 entity.translate(entityVelocity.x - self.xStep, entityVelocity.y, entityVelocity.z + self.zStep)
@@ -328,7 +405,6 @@ class Tatch(tk.Tk):
 
                 # Shoot on time if an enemy. If projectile, check collisions
                 if isinstance(entity, Enemy):
-                    enemiesExist = True
                     if self.enemyShootTimer > self.enemyShootDelay:
                         self.launchProjectileFromEnemy(entity, self.projectileHitboxRadius, self.projectileSpeed, self.enemyProjectileDamage)
                         self.enemyShootTimer = 0
@@ -343,15 +419,16 @@ class Tatch(tk.Tk):
                                         self.entities.remove(entity)
                             else:
                                 if entity.collidesWith(otherEntity) or otherEntity.collidesWith(entity):
-                                    self.entities.remove(otherEntity)
-                                    self.entities.remove(entity)
+                                    if (otherEntity in self.entities):
+                                        self.entities.remove(otherEntity)
 
-            # If there are no enemies, spawn one
-            if not enemiesExist:
-                self.spawnEnemy(Vector(random.randint(-15,15), 0, random.randint(-70, -45)))
+                                    if (entity in self.entities):
+                                        self.entities.remove(entity)
+
+                                    self.score += self.scoreIncrement
 
         # Draw with new information
-        self.drawAll(drawTerrain = self.updateTerrain, drawHitboxes = True, drawOverlay = True)
+        self.drawAll(drawTerrain = self.updateTerrain, drawHitboxes = not self.paused and not self.gameIsOver, drawOverlay = True)
         self.updateTerrain = False
 
         timeEndGameLoop = time.time()
@@ -372,10 +449,3 @@ if __name__ == "__main__":
     tatch = Tatch()
     tatch.after(0, tatch.gameLoop)
     tatch.mainloop()
-
-
-# After meeting
-#   - Native full screen
-#   - Aspect ratio fix
-#   - Add more to HUD
-#   - Delay between bullet firing so no lag
